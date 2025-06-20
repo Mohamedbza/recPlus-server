@@ -157,7 +157,6 @@ const companySchema = new mongoose.Schema({
 });
  
 
-// Check if model already exists to prevent duplicate compilation
 const Company = mongoose.model('Company', companySchema);
 
 module.exports = Company;

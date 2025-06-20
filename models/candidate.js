@@ -59,8 +59,7 @@ const candidateSchema = new mongoose.Schema({
 }, {
   timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' }
 });
-
-candidateSchema.index({ email: 1 });
+ 
 
 const Candidate = mongoose.model('Candidate', candidateSchema);
 module.exports = Candidate;
