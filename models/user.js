@@ -28,8 +28,8 @@ const userSchema = new mongoose.Schema({
   // Role and Permissions
   role: {
     type: String,
-    enum: ['super_admin', 'admin', 'consultant', 'user'],
-    default: 'user'
+    enum: ['super_admin', 'admin', 'consultant', 'employer'],
+    default: 'employer'
   },
   
   // Profile Information
@@ -58,6 +58,12 @@ const userSchema = new mongoose.Schema({
   position: {
     type: String,
     trim: true
+  },
+  region: {
+    type: String,
+    enum: ['montreal', 'dubai', 'turkey'],
+    required: true,
+    lowercase: true
   },
   
   // Account Status
