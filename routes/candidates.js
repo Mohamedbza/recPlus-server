@@ -1,59 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const Candidate = require('../models/candidate');
+const {
+  getAllCandidates,
+  getCandidateById,
+  createCandidate,
+  updateCandidate,
+  deleteCandidate,
+  getCandidatesBySkill
+} = require('../controllers/candidateController');
 
-// Create
-router.post('/', async (req, res) => {
-  try {
-    const candidate = new Candidate(req.body);
-    await candidate.save();
-    res.status(201).json(candidate);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// GET all candidates
+router.get('/', getAllCandidates);
 
-// Read all
-router.get('/', async (req, res) => {
-  try {
-    const candidates = await Candidate.find();
-    res.json(candidates);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// GET candidate by ID
+router.get('/:id', getCandidateById);
 
-// Read one
-router.get('/:id', async (req, res) => {
-  try {
-    const candidate = await Candidate.findById(req.params.id);
-    if (!candidate) return res.status(404).json({ error: 'Not found' });
-    res.json(candidate);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// POST create new candidate
+router.post('/', createCandidate);
 
-// Update
-router.put('/:id', async (req, res) => {
-  try {
-    const candidate = await Candidate.findByIdAndUpdate(req.params.id, req.body, { new: true });
-    if (!candidate) return res.status(404).json({ error: 'Not found' });
-    res.json(candidate);
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// PUT update candidate
+router.put('/:id', updateCandidate);
 
-// Delete
-router.delete('/:id', async (req, res) => {
-  try {
-    const candidate = await Candidate.findByIdAndDelete(req.params.id);
-    if (!candidate) return res.status(404).json({ error: 'Not found' });
-    res.json({ message: 'Deleted' });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
+// DELETE candidate
+router.delete('/:id', deleteCandidate);
 
-module.exports = router;
+// GET candidates by skill
+router.get('/skill/:skill', getCandidatesBySkill);
+
+module.exports = router; 

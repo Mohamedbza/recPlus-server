@@ -1,0 +1,132 @@
+const Company = require('../models/company');
+
+// Get all companies
+const getAllCompanies = async (req, res) => {
+  try {
+    const { page = 1, limit = 10, search, industry, status } = req.query;
+    
+    let query = {};
+    
+    // Search functionality
+    if (search) {
+      query.$or = [
+        { name: { $regex: search, $options: 'i' } },
+        { industry: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } }
+      ];
+    }
+    
+    // Industry filter
+    if (industry) {
+      query.industry = industry;
+    }
+    
+    // Status filter
+    if (status) {
+      query.status = status;
+    }
+    
+    const companies = await Company.find(query)
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
+    
+    const total = await Company.countDocuments(query);
+    
+    res.json({
+      companies,
+      total,
+      page: parseInt(page),
+      totalPages: Math.ceil(total / limit)
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get company by ID
+const getCompanyById = async (req, res) => {
+  try {
+    const company = await Company.findById(req.params.id);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+    res.json(company);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Create new company
+const createCompany = async (req, res) => {
+  try {
+    const company = new Company(req.body);
+    const newCompany = await company.save();
+    res.status(201).json(newCompany);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Update company
+const updateCompany = async (req, res) => {
+  try {
+    const company = await Company.findByIdAndUpdate(
+      req.params.id,
+      req.body,
+      { new: true, runValidators: true }
+    );
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+    res.json(company);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
+// Delete company
+const deleteCompany = async (req, res) => {
+  try {
+    const company = await Company.findByIdAndDelete(req.params.id);
+    if (!company) {
+      return res.status(404).json({ message: 'Company not found' });
+    }
+    res.json({ message: 'Company deleted successfully' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get companies by industry
+const getCompaniesByIndustry = async (req, res) => {
+  try {
+    const { industry } = req.params;
+    const companies = await Company.find({
+      industry: { $regex: industry, $options: 'i' }
+    });
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Get verified companies
+const getVerifiedCompanies = async (req, res) => {
+  try {
+    const companies = await Company.find({ isVerified: true });
+    res.json(companies);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+module.exports = {
+  getAllCompanies,
+  getCompanyById,
+  createCompany,
+  updateCompany,
+  deleteCompany,
+  getCompaniesByIndustry,
+  getVerifiedCompanies
+}; 
