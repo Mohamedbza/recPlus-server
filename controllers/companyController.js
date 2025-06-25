@@ -58,15 +58,15 @@ const getCompanyById = async (req, res) => {
 };
 
 // Create new company
-const createCompany = async (req, res) => {
-  try {
-    const company = new Company(req.body);
-    const newCompany = await company.save();
-    res.status(201).json(newCompany);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
+  const createCompany = async (req, res) => {
+    try {
+      const company = new Company(req.body);
+      const newCompany = await company.save();
+      res.status(201).json(newCompany);
+    } catch (error) {
+      res.status(400).json({ message: error.message });
+    }
+  };
 
 // Update company
 const updateCompany = async (req, res) => {

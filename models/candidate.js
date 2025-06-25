@@ -27,39 +27,47 @@ const candidateSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  dateOfBirth: {
-    type: Date
-  },
-  experience: {
-    type: String
-  },
-  skills: [{
-    type: String
-  }],
-  education: {
-    type: String
-  },
-  status: {
-    type: String,
-    enum: ['new', 'interview', 'offer', 'hired', 'rejected', 'waiting', 'active'],
-    default: 'new'
-  },
+  dateOfBirth: Date,
   profilePicture: {
     type: String,
-    default: '/api/placeholder/150/150'
+    default: null
   },
-  createdAt: {
-    type: Date,
-    default: Date.now
+
+  // CV & Cover Letter (optional)
+  resumeUrl: {
+    type: String,
+    trim: true
   },
-  updatedAt: {
-    type: Date,
-    default: Date.now
+  coverLetter: {
+    type: String,
+    trim: true
+  },
+
+  // Experience & Education
+  experiences: [{
+    company: String,
+    title: String,
+    startDate: Date,
+    endDate: Date,
+    description: String
+  }],
+  education: [{
+    institution: String,
+    degree: String,
+    fieldOfStudy: String,
+    startDate: Date,
+    endDate: Date
+  }],
+  skills: [String],
+
+  // Meta
+  isActive: {
+    type: Boolean,
+    default: true
   }
 }, {
-  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' }
+  timestamps: true
 });
- 
 
 const Candidate = mongoose.model('Candidate', candidateSchema);
 module.exports = Candidate;

@@ -1,13 +1,7 @@
 const mongoose = require('mongoose');
 
 const jobSchema = new mongoose.Schema({
-  // Basic Information
   title: {
-    type: String,
-    required: true,
-    trim: true
-  },
-  company: {
     type: String,
     required: true,
     trim: true
@@ -22,13 +16,28 @@ const jobSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  
-  // Job Details
-  
-  jobeType: {
+  isRemote: {
+    type: Boolean,
+    default: false
+  },
+  jobType: {
     type: String,
     enum: ['full-time', 'part-time', 'contract', 'internship', 'freelance'],
     default: 'full-time'
+  },
+  contractType: {
+    type: String,
+    enum: ['permanent', 'contract', 'temporary', 'internship'],
+    default: 'permanent'
+  },
+  experienceLevel: {
+    type: String,
+    enum: ['entry', 'junior', 'mid', 'senior', 'lead', 'executive'],
+    default: 'mid'
+  },
+  department: {
+    type: String,
+    trim: true
   },
   salary: {
     type: String,
@@ -43,80 +52,20 @@ const jobSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
-  
-  // Additional fields
-  companyName: {
-    type: String,
-    trim: true
-  },
-  isRemote: {
-    type: Boolean,
-    default: false
-  },
-  experienceLevel: {
-    type: String,
-    enum: ['entry', 'junior', 'mid', 'senior', 'lead', 'executive'],
-    default: 'mid'
-  },
-  contractType: {
-    type: String,
-    enum: ['permanent', 'contract', 'temporary', 'internship'],
-    default: 'permanent'
-  },
-  department: {
-    type: String,
-    trim: true
-  },
-  benefits: [{
-    type: String,
-    trim: true
-  }],
-  responsibilities: [{
-    type: String,
-    trim: true
-  }],
-  qualifications: [{
-    type: String,
-    trim: true
-  }],
-  skills: [{
-    type: String,
-    trim: true
-  }],
-  
-  // Application Details
-  applicationDeadline: {
-    type: Date
-  },
+  responsibilities: [String],
+  qualifications: [String],
+  benefits: [String],
+  skills: [String],
+  applicationDeadline: Date,
   applicationUrl: {
     type: String,
     trim: true
   },
-  contactEmail: {
-    type: String,
-    trim: true
-  },
-  contactPhone: {
-    type: String,
-    trim: true
-  },
-  
-  // Status and Visibility
   status: {
     type: String,
     enum: ['active', 'inactive', 'draft', 'closed', 'expired'],
     default: 'active'
   },
-  isFeatured: {
-    type: Boolean,
-    default: false
-  },
-  isUrgent: {
-    type: Boolean,
-    default: false
-  },
-  
-  // Metrics
   views: {
     type: Number,
     default: 0,
@@ -127,27 +76,13 @@ const jobSchema = new mongoose.Schema({
     default: 0,
     min: 0
   },
-  
-  // Timestamps
-  createdAt: {
-    type: Date,
-    default: Date.now
-  },
-  updatedAt: {
-    type: Date,
-    default: Date.now
-  },
-  createdBy: {
-    type: String,
-    trim: true
-  },
-  updatedBy: {
-    type: String,
-    trim: true
+  flags: {
+    isFeatured: { type: Boolean, default: false },
+    isUrgent: { type: Boolean, default: false }
   }
 }, {
-  timestamps: { createdAt: 'createdAt', updatedAt: 'updatedAt' }
+  timestamps: true
 });
 
 const Job = mongoose.model('Job', jobSchema);
-module.exports = Job; 
+module.exports = Job;
