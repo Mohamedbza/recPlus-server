@@ -3,7 +3,7 @@ const JobApplication = require('../models/jobApplication');
 // Get all job applications
 const getAllJobApplications = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, candidate, job, company } = req.query;
+    const { page = 1, limit = 10, status, candidate, job } = req.query;
     
     let query = {};
     
@@ -22,15 +22,13 @@ const getAllJobApplications = async (req, res) => {
       query.job = job;
     }
     
-    // Company filter
-    if (company) {
-      query.company = company;
-    }
-    
     const jobApplications = await JobApplication.find(query)
       .populate('candidate', 'firstName lastName email')
-      .populate('job', 'title company')
-      .populate('company', 'name')
+      .populate({
+        path: 'job',
+        select: 'title companyId',
+        populate: { path: 'companyId', model: 'Company', select: 'name' }
+      })
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ createdAt: -1 });
@@ -53,8 +51,7 @@ const getJobApplicationById = async (req, res) => {
   try {
     const jobApplication = await JobApplication.findById(req.params.id)
       .populate('candidate', 'firstName lastName email phone')
-      .populate('job', 'title company description')
-      .populate('company', 'name email');
+      .populate('job', 'title company description');
       
     if (!jobApplication) {
       return res.status(404).json({ message: 'Job application not found' });
@@ -68,15 +65,99 @@ const getJobApplicationById = async (req, res) => {
 // Create new job application
 const createJobApplication = async (req, res) => {
   try {
-    const jobApplication = new JobApplication(req.body);
-    const newJobApplication = await jobApplication.save();
-    const populatedJobApplication = await JobApplication.findById(newJobApplication._id)
+    /*
+      ------------------------------------------------------------
+      1.  Quick pre–validation
+          ---------------------
+          Before we even talk to MongoDB we make sure that the
+          request body contains the absolutely required fields.
+          If something is missing we short-circuit the request
+          and let the caller know exactly which fields are absent.
+      ------------------------------------------------------------
+    */
+    const requiredFields = ['candidate', 'job']; // keep this list in-sync with the schema!
+    const missingFields  = requiredFields.filter(f => !req.body[f]);
+
+    if (missingFields.length) {
+      return res.status(400).json({
+        type         : 'MissingRequiredFields',
+        message      : 'Some required fields are missing',
+        missingFields
+      });
+    }
+
+    /*
+      ------------------------------------------------------------
+      2.  Create & persist the document
+      ------------------------------------------------------------
+    */
+    const jobApplication = await JobApplication.create(req.body);
+
+    /*
+      ------------------------------------------------------------
+      3.  Populate relations so the client receives a fully
+          hydrated document in one round-trip.
+      ------------------------------------------------------------
+    */
+    const populatedJobApplication = await JobApplication.findById(jobApplication._id)
       .populate('candidate', 'firstName lastName email')
-      .populate('job', 'title company')
-      .populate('company', 'name');
-    res.status(201).json(populatedJobApplication);
+      .populate({
+        path   : 'job',
+        select : 'title companyId',
+        populate: { path: 'companyId', model: 'Company', select: 'name' }
+      });
+
+    return res.status(201).json(populatedJobApplication);
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    /*
+      ------------------------------------------------------------
+      4.  Granular error handling
+      ------------------------------------------------------------
+    */
+    if (error.name === 'ValidationError') {
+      // Mongoose validation failed (required, enum, minlength, etc.)
+      const fieldErrors = Object.values(error.errors).map(e => ({
+        field   : e.path,
+        kind    : e.kind,
+        message : e.message
+      }));
+
+      // Extract specifically the "required" violations so the UI
+      // can highlight what is missing.
+      const requiredViolations = fieldErrors
+        .filter(e => e.kind === 'required')
+        .map(e => e.field);
+
+      return res.status(422).json({
+        type          : 'ValidationError',
+        message       : 'Job application validation failed',
+        missingFields : requiredViolations,
+        errors        : fieldErrors
+      });
+    }
+
+    if (error.name === 'CastError') {
+      // Wrong ObjectId format
+      return res.status(400).json({
+        type    : 'CastError',
+        message : `Invalid ${error.path}: ${error.value}`
+      });
+    }
+
+    if (error.code === 11000) {
+      // Duplicate key violation
+      return res.status(409).json({
+        type    : 'DuplicateKeyError',
+        message : 'Duplicate value entered',
+        fields  : error.keyValue
+      });
+    }
+
+    // Unknown / unhandled error
+    return res.status(500).json({
+      type    : 'ServerError',
+      message : error.message || 'Internal server error'
+    });
   }
 };
 
@@ -88,8 +169,11 @@ const updateJobApplication = async (req, res) => {
       req.body,
       { new: true, runValidators: true }
     ).populate('candidate', 'firstName lastName email')
-     .populate('job', 'title company')
-     .populate('company', 'name');
+     .populate({
+    path: 'job',
+    select: 'title companyId',
+    populate: { path: 'companyId', model: 'Company', select: 'name' }
+  });
      
     if (!jobApplication) {
       return res.status(404).json({ message: 'Job application not found' });
@@ -119,7 +203,6 @@ const getJobApplicationsByCandidate = async (req, res) => {
     const { candidateId } = req.params;
     const jobApplications = await JobApplication.find({ candidate: candidateId })
       .populate('job', 'title company location')
-      .populate('company', 'name')
       .sort({ createdAt: -1 });
     res.json(jobApplications);
   } catch (error) {
@@ -140,20 +223,6 @@ const getJobApplicationsByJob = async (req, res) => {
   }
 };
 
-// Get job applications by company
-const getJobApplicationsByCompany = async (req, res) => {
-  try {
-    const { companyId } = req.params;
-    const jobApplications = await JobApplication.find({ company: companyId })
-      .populate('candidate', 'firstName lastName email')
-      .populate('job', 'title')
-      .sort({ createdAt: -1 });
-    res.json(jobApplications);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 // Update job application status
 const updateJobApplicationStatus = async (req, res) => {
   try {
@@ -163,8 +232,11 @@ const updateJobApplicationStatus = async (req, res) => {
       { status },
       { new: true, runValidators: true }
     ).populate('candidate', 'firstName lastName email')
-     .populate('job', 'title company')
-     .populate('company', 'name');
+     .populate({
+    path: 'job',
+    select: 'title companyId',
+    populate: { path: 'companyId', model: 'Company', select: 'name' }
+  });
      
     if (!jobApplication) {
       return res.status(404).json({ message: 'Job application not found' });
@@ -184,8 +256,11 @@ const addJobApplicationFeedback = async (req, res) => {
       { feedback },
       { new: true, runValidators: true }
     ).populate('candidate', 'firstName lastName email')
-     .populate('job', 'title company')
-     .populate('company', 'name');
+     .populate({
+    path: 'job',
+    select: 'title companyId',
+    populate: { path: 'companyId', model: 'Company', select: 'name' }
+  });
      
     if (!jobApplication) {
       return res.status(404).json({ message: 'Job application not found' });
@@ -204,7 +279,6 @@ module.exports = {
   deleteJobApplication,
   getJobApplicationsByCandidate,
   getJobApplicationsByJob,
-  getJobApplicationsByCompany,
   updateJobApplicationStatus,
   addJobApplicationFeedback
 }; 

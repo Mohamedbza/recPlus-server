@@ -37,9 +37,10 @@ const getAllJobs = async (req, res) => {
     }
     
     const jobs = await Job.find(query)
-      .limit(limit * 1)
-      .skip((page - 1) * limit)
-      .sort({ createdAt: -1 });
+  .populate('companyId', 'name')
+  .limit(limit * 1)
+  .skip((page - 1) * limit)
+  .sort({ createdAt: -1 });
     
     const total = await Job.countDocuments(query);
     
@@ -57,7 +58,7 @@ const getAllJobs = async (req, res) => {
 // Get job by ID
 const getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id);
+    const job = await Job.findById(req.params.id).populate('companyId', 'name');
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -112,7 +113,7 @@ const deleteJob = async (req, res) => {
 const getJobsByCompany = async (req, res) => {
   try {
     const { companyId } = req.params;
-    const jobs = await Job.find({ companyId });
+    const jobs = await Job.find({ companyId }).populate('companyId', 'name');
     res.json(jobs);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -122,7 +123,7 @@ const getJobsByCompany = async (req, res) => {
 // Get remote jobs
 const getRemoteJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ isRemote: true, status: 'active' });
+    const jobs = await Job.find({ isRemote: true, status: 'active' }).populate('companyId', 'name');
     res.json(jobs);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -132,7 +133,7 @@ const getRemoteJobs = async (req, res) => {
 // Get featured jobs
 const getFeaturedJobs = async (req, res) => {
   try {
-    const jobs = await Job.find({ isFeatured: true, status: 'active' });
+    const jobs = await Job.find({ isFeatured: true, status: 'active' }).populate('companyId', 'name');
     res.json(jobs);
   } catch (error) {
     res.status(500).json({ message: error.message });

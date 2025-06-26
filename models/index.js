@@ -3,7 +3,6 @@ const Company = require('./company');
 const Job = require('./job');
 const Skill = require('./skill');
 const User = require('./user');
-const Application = require('./application');
 const JobApplication = require('./jobApplication');
 
 module.exports = {
@@ -12,6 +11,5 @@ module.exports = {
   Job,
   Skill,
   User,
-  Application,
   JobApplication
 }; 

@@ -35,7 +35,7 @@ router.get('/candidate/:candidateId', getJobApplicationsByCandidate);
 router.get('/job/:jobId', getJobApplicationsByJob);
 
 // GET job applications by company
-router.get('/company/:companyId', getJobApplicationsByCompany);
+// router.get('/company/:companyId', getJobApplicationsByCompany);
 
 // PATCH update job application status
 router.patch('/:id/status', updateJobApplicationStatus);

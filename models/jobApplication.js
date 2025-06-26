@@ -11,11 +11,6 @@ const jobApplicationSchema = new mongoose.Schema({
     ref: 'Job',
     required: true
   },
-  company: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'Company',
-    required: true
-  },
   resumeUrl: {
     type: String,
     trim: true
