@@ -15,11 +15,11 @@ const aiRouter = require('../routes/ai');
 const projectsRouter = require('../routes/projects');
 
 // Import models
-const { Candidate, Company, Job, Skill, User, JobApplication } = require('../models');
+const { Candidate, Company, Job, Skill, User, JobApplication, Project } = require('../models');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
 
+// Middleware
 app.use(bodyParser.json());
 app.use(express.json());
 app.use(cors());
@@ -27,20 +27,50 @@ app.use(cors());
 // Debug middleware to log all requests
 app.use((req, res, next) => {
   console.log(`🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
-  console.log('📦 Request body:', req.body);
-  console.log('📋 Request headers:', req.headers);
   next();
 });
 
-const DB = process.env.MONGODB_URI;
+// MongoDB connection handling
+let cachedDb = null;
 
-// Connect to MongoDB
-mongoose.connect(DB)
-  .then(() => console.log('MongoDB connection successful'))
-  .catch((e) => console.error('MongoDB connection error:', e));
+async function connectToDatabase() {
+  if (cachedDb) {
+    console.log('Using cached database connection');
+    return cachedDb;
+  }
+
+  try {
+    const DB = process.env.MONGODB_URI;
+    if (!DB) {
+      throw new Error('MONGODB_URI is not defined in environment variables');
+    }
+
+    const connection = await mongoose.connect(DB, {
+      useNewUrlParser: true,
+      useUnifiedTopology: true,
+    });
+
+    cachedDb = connection;
+    console.log('New database connection established');
+    return cachedDb;
+  } catch (error) {
+    console.error('MongoDB connection error:', error);
+    throw error;
+  }
+}
+
+// Middleware to ensure database connection
+app.use(async (req, res, next) => {
+  try {
+    await connectToDatabase();
+    next();
+  } catch (error) {
+    console.error('Database connection middleware error:', error);
+    res.status(500).json({ error: 'Database connection failed' });
+  }
+});
 
 // Routes 
-console.log('🔗 Mounting routes...');
 app.use('/api/candidates', candidatesRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/jobs', jobsRouter);
@@ -48,75 +78,44 @@ app.use('/api/skills', skillsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/job-applications', jobApplicationsRouter);
 app.use('/api/ai', aiRouter);
-console.log('✅ All routes mounted successfully');
 app.use('/api/projects', projectsRouter);
 
-app.get('/', (req, res) => {
-  res.send('CRM Server is running!');
+// Health check route
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
 });
 
-// Debug route to list all routes
-app.get('/debug/routes', (req, res) => {
-  const routes = [];
-  app._router.stack.forEach((middleware) => {
-    if (middleware.route) {
-      routes.push(`${Object.keys(middleware.route.methods)[0].toUpperCase()} ${middleware.route.path}`);
-    } else if (middleware.name === 'router') {
-      middleware.handle.stack.forEach((handler) => {
-        if (handler.route) {
-          routes.push(`${Object.keys(handler.route.methods)[0].toUpperCase()} ${middleware.regexp.source}${handler.route.path}`);
-        }
-      });
+// Root route
+app.get('/', (req, res) => {
+  res.json({ message: 'CRM Server is running!' });
+});
+
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(err.status || 500).json({
+    error: {
+      message: err.message || 'Internal server error',
+      ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     }
   });
-  res.json({ routes });
 });
 
-// Add a test route to verify server is responding
-app.get('/api/test', (req, res) => {
-  console.log('✅ TEST: /api/test endpoint hit');
-  res.json({ 
-    success: true, 
-    message: 'Server is responding',
-    timestamp: new Date().toISOString(),
-    url: req.originalUrl
-  });
-});
-
-// Add 404 handler for debugging
-app.use('/api/*', (req, res, next) => {
-  console.log('🔍 DEBUG: Unmatched API route accessed:');
-  console.log('   📍 Method:', req.method);
-  console.log('   📍 Original URL:', req.originalUrl);
-  console.log('   📍 Path:', req.path);
-  console.log('   📍 Available routes should include: /api/ai/generate-email');
-  console.log('   📍 Timestamp:', new Date().toISOString());
-  
+// 404 handler
+app.use((req, res) => {
   res.status(404).json({
-    success: false,
-    message: `Route not found: ${req.method} ${req.originalUrl}`,
-    availableRoutes: [
-      'GET /api/test',
-      'POST /api/ai/generate-email',
-      'POST /api/ai/analyze-cv',
-      'GET /debug/routes'
-    ]
+    error: {
+      message: `Route not found: ${req.method} ${req.originalUrl}`
+    }
   });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`📊 Debug routes available at: http://localhost:${PORT}/debug/routes`);
-  console.log(`🧪 Test endpoint available at: http://localhost:${PORT}/api/test`);
-  console.log(`📧 Email generation endpoint should be at: http://localhost:${PORT}/api/ai/generate-email`);
-});
+// For local development
+if (process.env.NODE_ENV !== 'production') {
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`🚀 Server is running on port ${PORT}`);
+  });
+}
 
-// Export models
 module.exports = app;
-module.exports.Candidate = Candidate;
-module.exports.Company = Company;
-module.exports.Job = Job;
-module.exports.Skill = Skill;
-module.exports.User = User;
-module.exports.JobApplication = JobApplication;
-module.exports.Project = Project;
