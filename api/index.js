@@ -20,13 +20,15 @@ const { Candidate, Company, Job, Skill, User, JobApplication, Project } = requir
 const app = express();
 
 // Middleware
-app.use(bodyParser.json());
-app.use(express.json());
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(express.json({ limit: '10mb' }));
 app.use(cors());
 
-// Debug middleware to log all requests
+// Error logging middleware
 app.use((req, res, next) => {
-  console.log(`🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.originalUrl}`);
+  console.log('Request Headers:', JSON.stringify(req.headers));
+  console.log('Request Body:', JSON.stringify(req.body));
   next();
 });
 
@@ -34,43 +36,96 @@ app.use((req, res, next) => {
 let cachedDb = null;
 
 async function connectToDatabase() {
-  if (cachedDb) {
-    console.log('Using cached database connection');
-    return cachedDb;
-  }
-
   try {
-    const DB = process.env.MONGODB_URI;
-    if (!DB) {
-      throw new Error('MONGODB_URI is not defined in environment variables');
+    if (cachedDb && mongoose.connection.readyState === 1) {
+      console.log('[MongoDB] Using cached connection');
+      return cachedDb;
     }
 
+    const DB = process.env.MONGODB_URI;
+    if (!DB) {
+      throw new Error('[MongoDB] MONGODB_URI is not defined in environment variables');
+    }
+
+    console.log('[MongoDB] Attempting to connect to database...');
+    
     const connection = await mongoose.connect(DB, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
     });
 
+    console.log('[MongoDB] Connection successful');
     cachedDb = connection;
-    console.log('New database connection established');
+    
+    // Handle connection events
+    mongoose.connection.on('error', (err) => {
+      console.error('[MongoDB] Connection error:', err);
+    });
+
+    mongoose.connection.on('disconnected', () => {
+      console.log('[MongoDB] Disconnected');
+      cachedDb = null;
+    });
+
     return cachedDb;
   } catch (error) {
-    console.error('MongoDB connection error:', error);
+    console.error('[MongoDB] Connection error:', error);
+    console.error('[MongoDB] Stack trace:', error.stack);
     throw error;
   }
 }
 
-// Middleware to ensure database connection
+// Database connection middleware
 app.use(async (req, res, next) => {
   try {
     await connectToDatabase();
     next();
   } catch (error) {
-    console.error('Database connection middleware error:', error);
-    res.status(500).json({ error: 'Database connection failed' });
+    console.error('[Middleware] Database connection error:', error);
+    console.error('[Middleware] Stack trace:', error.stack);
+    res.status(500).json({ 
+      error: 'Database connection failed',
+      message: error.message,
+      timestamp: new Date().toISOString()
+    });
   }
 });
 
-// Routes 
+// Routes with error handling
+const wrapAsync = (fn) => {
+  return async (req, res, next) => {
+    try {
+      await fn(req, res, next);
+    } catch (error) {
+      console.error(`[Route Error] ${req.method} ${req.path}:`, error);
+      next(error);
+    }
+  };
+};
+
+// Health check route
+app.get('/api/health', wrapAsync(async (req, res) => {
+  const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+  res.json({
+    status: 'healthy',
+    database: dbStatus,
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+}));
+
+// Root route
+app.get('/', (req, res) => {
+  res.json({ 
+    message: 'CRM Server is running!',
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV
+  });
+});
+
+// Apply routes with error handling
 app.use('/api/candidates', candidatesRouter);
 app.use('/api/companies', companiesRouter);
 app.use('/api/jobs', jobsRouter);
@@ -80,22 +135,17 @@ app.use('/api/job-applications', jobApplicationsRouter);
 app.use('/api/ai', aiRouter);
 app.use('/api/projects', projectsRouter);
 
-// Health check route
-app.get('/api/health', (req, res) => {
-  res.json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
-
-// Root route
-app.get('/', (req, res) => {
-  res.json({ message: 'CRM Server is running!' });
-});
-
 // Error handling middleware
 app.use((err, req, res, next) => {
-  console.error('Error:', err);
+  console.error('[Error Handler] Uncaught error:', err);
+  console.error('[Error Handler] Stack trace:', err.stack);
+  
   res.status(err.status || 500).json({
     error: {
       message: err.message || 'Internal server error',
+      type: err.name,
+      path: req.path,
+      timestamp: new Date().toISOString(),
       ...(process.env.NODE_ENV === 'development' && { stack: err.stack })
     }
   });
@@ -103,9 +153,11 @@ app.use((err, req, res, next) => {
 
 // 404 handler
 app.use((req, res) => {
+  console.log(`[404] Route not found: ${req.method} ${req.originalUrl}`);
   res.status(404).json({
     error: {
-      message: `Route not found: ${req.method} ${req.originalUrl}`
+      message: `Route not found: ${req.method} ${req.originalUrl}`,
+      timestamp: new Date().toISOString()
     }
   });
 });
