@@ -1,5 +1,6 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const { ObjectId } = mongoose.Types;
 
 // Import models
 const Candidate = require('./models/candidate');
@@ -8,11 +9,12 @@ const Job = require('./models/job');
 const Skill = require('./models/skill');
 const User = require('./models/user');
 const Application = require('./models/application');
+const Project = require('./models/project');
 
 // Connect to MongoDB
 const connectDB = async () => {
   try {
-    await mongoose.connect(process.env.MONGODB_URI);
+    await mongoose.connect(process.env.MONGODB_URI || 'mongodb://localhost:27017/recruitmentPlus');
     console.log('✅ MongoDB connected successfully');
   } catch (error) {
     console.error('❌ MongoDB connection error:', error);
@@ -29,10 +31,18 @@ const clearDatabase = async () => {
     await Skill.deleteMany({});
     await User.deleteMany({});
     await Application.deleteMany({});
+    await Project.deleteMany({});
     console.log('🗑️  Existing data cleared');
   } catch (error) {
     console.error('❌ Error clearing database:', error);
   }
+};
+
+// Helper function to create consistent ObjectIds
+const createConsistentId = (prefix, index) => {
+  // Create a predictable hex string based on prefix and index
+  const hexString = prefix + '0'.repeat(24 - prefix.length - index.toString().length) + index;
+  return new ObjectId(hexString);
 };
 
 // Seed Skills
@@ -279,6 +289,50 @@ const seedUsers = async () => {
       isVerified: true
     },
     {
+      firstName: 'John',
+      lastName: 'Mark',
+      email: 'john.mark@company.com',
+      password: hashedPassword,
+      role: 'employer',
+      department: 'Engineering',
+      region: 'montreal',
+      phone: '+1-514-555-0107',
+      bio: 'Engineering Manager',
+    },
+    {
+      firstName: 'gonzalo',
+      lastName: 'pietro',
+      email: 'gonzalo.pietro@company.com',
+      password: hashedPassword,
+      role: 'employer',
+      department: 'Engineering',
+      region: 'montreal',
+      phone: '+1-514-555-0107',
+      bio: 'Engineering Manager',
+    },
+    {
+      firstName: 'benjamin',
+      lastName: 'wood',
+      email: 'benjamin.wood@company.com',
+      password: hashedPassword,
+      role: 'employer',
+      department: 'Sales',
+      region: 'montreal',
+      phone: '+1-514-555-0107',
+      bio: 'Sales Manager',
+    },
+    {
+      firstName: 'harry',
+      lastName: 'potter',
+      email: 'harry.potter@company.com',
+      password: hashedPassword,
+      role: 'admin',
+      department: 'IT',
+      region: 'montreal',
+      phone: '+1-514-555-0107',
+      bio: 'IT Manager',
+    },
+    {
       firstName: 'Mehmet',
       lastName: 'Consultant',
       email: 'mehmet.consultant@company.com',
@@ -303,6 +357,15 @@ const seedUsers = async () => {
       bio: 'Sales Supervisor and Team Leader',
       isActive: true,
       isVerified: true
+    },
+    {
+      firstName: 'hakim',
+      lastName: 'recplus',
+      email: 'hakim.recplus@company.com',
+      password: hashedPassword,
+      role: 'admin',
+      department: 'IT',
+      region: 'montreal',
     }
   ];
 
@@ -851,6 +914,453 @@ const seedApplications = async (candidates, jobs, companies, users) => {
   return createdApplications;
 };
 
+// Seed Projects
+const seedProjects = async (companies, users, skills) => {
+  // Generate consistent IDs for projects
+  const projectId1 = createConsistentId('a1', 1);
+  const projectId2 = createConsistentId('a2', 2);
+  const projectId3 = createConsistentId('a3', 3);
+  
+  // Generate consistent IDs for tasks - ensure they follow the exact pattern expected by frontend
+  const taskIds = {
+    project1: [
+      createConsistentId('b1', 1),
+      createConsistentId('b1', 2),
+      createConsistentId('b1', 3)
+    ],
+    project2: [
+      createConsistentId('b2', 1),
+      createConsistentId('b2', 2),
+      createConsistentId('b2', 3)
+    ],
+    project3: [
+      createConsistentId('b3', 1),
+      createConsistentId('b3', 2),
+      createConsistentId('b3', 3)
+    ]
+  };
+  
+  console.log('Generated Project IDs:');
+  console.log('Project 1:', projectId1.toString());
+  console.log('Project 2:', projectId2.toString());
+  console.log('Project 3:', projectId3.toString());
+  
+  console.log('Generated Task IDs for Project 1:');
+  taskIds.project1.forEach((id, index) => {
+    console.log(`Task ${index + 1}:`, id.toString());
+  });
+
+  // Create an additional set of task IDs that exactly match the pattern in the frontend
+  console.log('Generating frontend-compatible task IDs:');
+  const frontendTaskIds = [];
+  for (let i = 1; i <= 10; i++) {
+    const paddedIndex = i.toString().padStart(2, '0');
+    const taskId = `b100000000000000000000${paddedIndex}`;
+    frontendTaskIds.push(taskId);
+    console.log(`Frontend Task ${i}:`, taskId);
+  }
+
+  const projects = [
+    {
+      _id: projectId1, // Use consistent ID
+      name: 'E-Commerce Platform Redesign',
+      description: 'Complete redesign of the company e-commerce platform with modern UI/UX and improved performance.',
+      status: 'in-progress',
+      priority: 'high',
+      startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000), // 30 days ago
+      endDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000), // 60 days from now
+      budget: 150000,
+      actualCost: 75000,
+      teamMembers: [
+        { userId: users[0]._id, role: 'developer' },
+        { userId: users[1]._id, role: 'designer' },
+        { userId: users[2]._id, role: 'tester' }
+      ],
+      tasks: [
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[0]),
+          title: 'Design Homepage Mockup',
+          description: 'Create modern homepage design with responsive layout',
+          status: 'completed',
+          priority: 'high',
+          assignedTo: users[1]._id,
+          startDate: new Date(Date.now() - 25 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000),
+          estimatedHours: 16,
+          actualHours: 18,
+          tags: ['design', 'ui/ux', 'frontend']
+        },
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[1]),
+          title: 'Implement Product Catalog',
+          description: 'Build dynamic product catalog with filtering and search',
+          status: 'in-progress',
+          priority: 'high',
+          assignedTo: users[0]._id,
+          startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          estimatedHours: 32,
+          actualHours: 24,
+          tags: ['frontend', 'react', 'api']
+        },
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[2]),
+          title: 'Payment Integration Testing',
+          description: 'Test payment gateway integration and user flows',
+          status: 'todo',
+          priority: 'medium',
+          assignedTo: users[2]._id,
+          startDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000),
+          estimatedHours: 12,
+          actualHours: 0,
+          tags: ['testing', 'payments', 'integration']
+        }
+      ],
+      projectManager: users[0]._id,
+      company: companies[0]._id,
+      technologies: ['React', 'Node.js', 'MongoDB', 'TypeScript'],
+      type: 'web-development',
+      progress: 65,
+      documents: [
+        { name: 'Project Requirements', url: '/docs/ecommerce-requirements.pdf' },
+        { name: 'Design Mockups', url: '/docs/ecommerce-mockups.pdf' }
+      ],
+      notes: 'Project is progressing well. Need to focus on mobile responsiveness in the next sprint.'
+    },
+    {
+      _id: projectId2, // Use consistent ID
+      name: 'Mobile Banking App',
+      description: 'Development of a secure mobile banking application for iOS and Android platforms.',
+      status: 'planning',
+      priority: 'critical',
+      startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days from now
+      endDate: new Date(Date.now() + 120 * 24 * 60 * 60 * 1000), // 120 days from now
+      budget: 300000,
+      actualCost: 0,
+      teamMembers: [
+        { userId: users[1]._id, role: 'project-manager' },
+        { userId: users[3]._id, role: 'developer' },
+        { userId: users[4]._id, role: 'developer' },
+        { userId: users[5]._id, role: 'designer' }
+      ],
+      tasks: [
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[3]),
+          title: 'Security Requirements Analysis',
+          description: 'Define security requirements and compliance standards',
+          status: 'in-progress',
+          priority: 'critical',
+          assignedTo: users[1]._id,
+          startDate: new Date(),
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          estimatedHours: 20,
+          actualHours: 8,
+          tags: ['security', 'compliance', 'requirements']
+        },
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[4]),
+          title: 'User Interface Design',
+          description: 'Design user interface for mobile app',
+          status: 'todo',
+          priority: 'high',
+          assignedTo: users[5]._id,
+          startDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 21 * 24 * 60 * 60 * 1000),
+          estimatedHours: 40,
+          actualHours: 0,
+          tags: ['design', 'mobile', 'ui/ux']
+        },
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[5]),
+          title: 'Backend API Development',
+          description: 'Develop secure APIs for banking operations',
+          status: 'todo',
+          priority: 'critical',
+          assignedTo: users[3]._id,
+          startDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+          estimatedHours: 80,
+          actualHours: 0,
+          tags: ['backend', 'api', 'security']
+        }
+      ],
+      projectManager: users[1]._id,
+      company: companies[1]._id,
+      technologies: ['React Native', 'Node.js', 'PostgreSQL', 'AWS'],
+      type: 'mobile-app',
+      progress: 15,
+      documents: [
+        { name: 'Security Requirements', url: '/docs/banking-security.pdf' }
+      ],
+      notes: 'High priority project. Security is paramount. Need additional security review.'
+    },
+    {
+      _id: projectId3, // Use consistent ID
+      name: 'Data Analytics Dashboard',
+      description: 'Interactive dashboard for real-time data analytics and business intelligence.',
+      status: 'completed',
+      priority: 'medium',
+      startDate: new Date(Date.now() - 90 * 24 * 60 * 60 * 1000), // 90 days ago
+      endDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000), // 10 days ago
+      actualEndDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+      budget: 80000,
+      actualCost: 78000,
+      teamMembers: [
+        { userId: users[2]._id, role: 'developer' },
+        { userId: users[6]._id, role: 'analyst' },
+        { userId: users[7]._id, role: 'tester' }
+      ],
+      tasks: [
+        {
+          // Use the exact format expected by frontend
+          _id: new ObjectId(frontendTaskIds[6]),
+          title: 'Data Source Integration',
+          description: 'Connect and integrate various data sources',
+          status: 'completed',
+          priority: 'high',
+          assignedTo: users[2]._id,
+          startDate: new Date(Date.now() - 85 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 75 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 75 * 24 * 60 * 60 * 1000),
+          estimatedHours: 24,
+          actualHours: 26,
+          tags: ['backend', 'integration', 'data']
+        },
+        {
+          _id: taskIds.project3[1], // Use consistent ID
+          title: 'Dashboard UI Development',
+          description: 'Build interactive dashboard interface',
+          status: 'completed',
+          priority: 'high',
+          assignedTo: users[2]._id,
+          startDate: new Date(Date.now() - 70 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 50 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 48 * 24 * 60 * 60 * 1000),
+          estimatedHours: 40,
+          actualHours: 38,
+          tags: ['frontend', 'dashboard', 'vue']
+        },
+        {
+          _id: taskIds.project3[2], // Use consistent ID
+          title: 'Performance Testing',
+          description: 'Test dashboard performance with large datasets',
+          status: 'completed',
+          priority: 'medium',
+          assignedTo: users[7]._id,
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+          estimatedHours: 16,
+          actualHours: 14,
+          tags: ['testing', 'performance', 'optimization']
+        }
+      ],
+      projectManager: users[2]._id,
+      company: companies[2]._id,
+      technologies: ['Vue.js', 'Python', 'MongoDB', 'D3.js'],
+      type: 'web-development',
+      progress: 100,
+      documents: [
+        { name: 'User Manual', url: '/docs/dashboard-manual.pdf' },
+        { name: 'Technical Documentation', url: '/docs/dashboard-tech-doc.pdf' }
+      ],
+      notes: 'Project completed successfully. Client is very satisfied with the results.'
+    },
+    {
+      name: 'Cloud Infrastructure Migration',
+      description: 'Migration of legacy systems to cloud infrastructure with improved scalability and security.',
+      status: 'in-progress',
+      priority: 'high',
+      startDate: new Date(Date.now() - 45 * 24 * 60 * 60 * 1000), // 45 days ago
+      endDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000), // 30 days from now
+      budget: 200000,
+      actualCost: 120000,
+      teamMembers: [
+        { userId: users[3]._id, role: 'developer' },
+        { userId: users[0]._id, role: 'developer' },
+        { userId: users[1]._id, role: 'analyst' }
+      ],
+      tasks: [
+        {
+          title: 'Infrastructure Assessment',
+          description: 'Assess current infrastructure and plan migration',
+          status: 'completed',
+          priority: 'critical',
+          assignedTo: users[1]._id,
+          startDate: new Date(Date.now() - 42 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 35 * 24 * 60 * 60 * 1000),
+          estimatedHours: 32,
+          actualHours: 35,
+          tags: ['analysis', 'infrastructure', 'planning']
+        },
+        {
+          title: 'Containerization',
+          description: 'Containerize applications using Docker',
+          status: 'completed',
+          priority: 'high',
+          assignedTo: users[3]._id,
+          startDate: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          estimatedHours: 40,
+          actualHours: 42,
+          tags: ['docker', 'containerization', 'devops']
+        },
+        {
+          title: 'Kubernetes Deployment',
+          description: 'Deploy containerized apps to Kubernetes cluster',
+          status: 'in-progress',
+          priority: 'high',
+          assignedTo: users[0]._id,
+          startDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 10 * 24 * 60 * 60 * 1000),
+          estimatedHours: 36,
+          actualHours: 20,
+          tags: ['kubernetes', 'deployment', 'orchestration']
+        }
+      ],
+      projectManager: users[3]._id,
+      company: companies[3]._id,
+      technologies: ['AWS', 'Docker', 'Kubernetes', 'Jenkins'],
+      type: 'other',
+      progress: 80,
+      documents: [
+        { name: 'Migration Plan', url: '/docs/migration-plan.pdf' },
+        { name: 'Security Audit', url: '/docs/security-audit.pdf' }
+      ],
+      notes: 'Migration is on track. Final testing phase scheduled for next week.'
+    },
+    {
+      name: 'Customer Support Portal',
+      description: 'Self-service customer support portal with ticket management and knowledge base.',
+      status: 'on-hold',
+      priority: 'low',
+      startDate: new Date(Date.now() - 20 * 24 * 60 * 60 * 1000), // 20 days ago
+      endDate: new Date(Date.now() + 40 * 24 * 60 * 60 * 1000), // 40 days from now
+      budget: 60000,
+      actualCost: 25000,
+      teamMembers: [
+        { userId: users[4]._id, role: 'developer' },
+        { userId: users[2]._id, role: 'designer' }
+      ],
+      tasks: [
+        {
+          title: 'Requirements Gathering',
+          description: 'Gather requirements from stakeholders',
+          status: 'completed',
+          priority: 'medium',
+          assignedTo: users[4]._id,
+          startDate: new Date(Date.now() - 18 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000),
+          estimatedHours: 12,
+          actualHours: 10,
+          tags: ['requirements', 'stakeholder', 'analysis']
+        },
+        {
+          title: 'Portal Design',
+          description: 'Design user interface for support portal',
+          status: 'in-progress',
+          priority: 'medium',
+          assignedTo: users[2]._id,
+          startDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+          estimatedHours: 20,
+          actualHours: 8,
+          tags: ['design', 'ui', 'portal']
+        }
+      ],
+      projectManager: users[4]._id,
+      company: companies[4]._id,
+      technologies: ['Angular', 'PHP', 'MySQL'],
+      type: 'web-development',
+      progress: 35,
+      documents: [
+        { name: 'Wireframes', url: '/docs/support-wireframes.pdf' }
+      ],
+      notes: 'Project on hold due to budget constraints. Will resume next quarter.'
+    },
+    {
+      name: 'Security Audit System',
+      description: 'Automated security audit system for continuous monitoring and threat detection.',
+      status: 'in-progress',
+      priority: 'critical',
+      startDate: new Date(Date.now() - 15 * 24 * 60 * 60 * 1000), // 15 days ago
+      endDate: new Date(Date.now() + 75 * 24 * 60 * 60 * 1000), // 75 days from now
+      budget: 180000,
+      actualCost: 45000,
+      teamMembers: [
+        { userId: users[5]._id, role: 'project-manager' },
+        { userId: users[3]._id, role: 'developer' },
+        { userId: users[6]._id, role: 'analyst' },
+        { userId: users[7]._id, role: 'tester' }
+      ],
+      tasks: [
+        {
+          title: 'Threat Modeling',
+          description: 'Create comprehensive threat model',
+          status: 'completed',
+          priority: 'critical',
+          assignedTo: users[6]._id,
+          startDate: new Date(Date.now() - 12 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+          completedDate: new Date(Date.now() - 8 * 24 * 60 * 60 * 1000),
+          estimatedHours: 16,
+          actualHours: 18,
+          tags: ['security', 'threat-modeling', 'analysis']
+        },
+        {
+          title: 'Monitoring System Development',
+          description: 'Develop automated monitoring system',
+          status: 'in-progress',
+          priority: 'critical',
+          assignedTo: users[3]._id,
+          startDate: new Date(Date.now() - 5 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+          estimatedHours: 60,
+          actualHours: 25,
+          tags: ['development', 'monitoring', 'automation']
+        },
+        {
+          title: 'Security Testing',
+          description: 'Perform comprehensive security testing',
+          status: 'todo',
+          priority: 'high',
+          assignedTo: users[7]._id,
+          startDate: new Date(Date.now() + 25 * 24 * 60 * 60 * 1000),
+          dueDate: new Date(Date.now() + 45 * 24 * 60 * 60 * 1000),
+          estimatedHours: 40,
+          actualHours: 0,
+          tags: ['testing', 'security', 'penetration-testing']
+        }
+      ],
+      projectManager: users[5]._id,
+      company: companies[5]._id,
+      technologies: ['Python', 'Java', 'PostgreSQL', 'Redis'],
+      type: 'other',
+      progress: 25,
+      documents: [
+        { name: 'Security Requirements', url: '/docs/security-requirements.pdf' },
+        { name: 'Architecture Document', url: '/docs/security-architecture.pdf' }
+      ],
+      notes: 'Critical security project. Regular updates required. External security consultant involved.'
+    }
+  ];
+
+  const createdProjects = await Project.insertMany(projects);
+  console.log(`✅ ${createdProjects.length} projects created`);
+  return createdProjects;
+};
+
 // Main seeding function
 const seedDatabase = async () => {
   console.log('🌱 Starting database seeding...\n');
@@ -869,6 +1379,7 @@ const seedDatabase = async () => {
     const candidates = await seedCandidates(skills);
     const jobs = await seedJobs(companies, skills);
     const applications = await seedApplications(candidates, jobs, companies, users);
+    const projects = await seedProjects(companies, users, skills);
     
     console.log('\n' + '=' .repeat(50));
     console.log('🎉 Database seeding completed successfully!');
@@ -881,6 +1392,7 @@ const seedDatabase = async () => {
     console.log(`✅ Candidates: ${candidates.length}`);
     console.log(`✅ Jobs: ${jobs.length}`);
     console.log(`✅ Applications: ${applications.length}`);
+    console.log(`✅ Projects: ${projects.length}`);
     
     console.log('\n🔗 Test API Endpoints:');
     console.log('- GET http://localhost:3000/api/candidates');
@@ -889,6 +1401,7 @@ const seedDatabase = async () => {
     console.log('- GET http://localhost:3000/api/skills');
     console.log('- GET http://localhost:3000/api/users');
     console.log('- GET http://localhost:3000/api/applications');
+    console.log('- GET http://localhost:3000/api/projects');
     
     console.log('\n🔍 Test with filters:');
     console.log('- GET http://localhost:3000/api/candidates?isActive=true');
@@ -898,6 +1411,9 @@ const seedDatabase = async () => {
     console.log('- GET http://localhost:3000/api/users?region=montreal');
     console.log('- GET http://localhost:3000/api/users/region/dubai');
     console.log('- GET http://localhost:3000/api/users/region/turkey');
+    console.log('- GET http://localhost:3000/api/projects?status=in-progress');
+    console.log('- GET http://localhost:3000/api/projects?priority=high');
+    console.log('- GET http://localhost:3000/api/projects/team-member/:userId');
     
     console.log('\n🚀 Ready to test all APIs!');
     

@@ -12,9 +12,10 @@ const skillsRouter = require('../routes/skills');
 const usersRouter = require('../routes/users');
 const applicationsRouter = require('../routes/applications');
 const jobApplicationsRouter = require('../routes/jobApplications');
+const projectsRouter = require('../routes/projects');
 
 // Import models
-const { Candidate, Company, Job, Skill, User, Application, JobApplication } = require('../models');
+const { Candidate, Company, Job, Skill, User, Application, JobApplication, Project } = require('../models');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -38,6 +39,7 @@ app.use('/api/skills', skillsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/applications', applicationsRouter);
 app.use('/api/job-applications', jobApplicationsRouter);
+app.use('/api/projects', projectsRouter);
 
 app.get('/', (req, res) => {
   res.send('CRM Server is running!');
@@ -56,3 +58,4 @@ module.exports.Skill = Skill;
 module.exports.User = User;
 module.exports.Application = Application;
 module.exports.JobApplication = JobApplication;
+module.exports.Project = Project;
