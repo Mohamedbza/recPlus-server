@@ -26,3 +26,6 @@ CLOUDINARY_API_SECRET=your-api-secret
 FIREBASE_PROJECT_ID=your-project-id
 FIREBASE_CLIENT_EMAIL=your-client-email
 FIREBASE_PRIVATE_KEY=your-private-key 
+
+# OpenAI Configuration (for AI features)
+OPENAI_API_KEY=your-openai-api-key-here
