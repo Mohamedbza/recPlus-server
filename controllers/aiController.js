@@ -105,41 +105,27 @@ const analyzeEmailIntent = (instruction) => {
 // @access  Private
 const generateEmail = asyncHandler(async (req, res) => {
   try {
-    // Accept flexible payloads coming from various frontend versions
-    let { type, data, prompt } = req.body || {};
 
-    // Allow alternative field names commonly used in older clients
-    if (!prompt) {
-      prompt = req.body?.message || req.body?.text || req.body?.content || '';
-    }
+    const { type, data, prompt } = req.body;
 
-    if (!type) {
-      type = req.body?.category || req.body?.emailType || 'chat';
-    }
-
-    data = data || req.body?.details || {};
-
-    // Minimal validation: we only truly need the prompt. "type" defaults to "chat".
-    if (!prompt || typeof prompt !== 'string' || prompt.trim().length === 0) {
+    // Validate required fields
+    if (!type || !data || !prompt) {
       return res.status(400).json({
         success: false,
-        message: 'Missing required field: "prompt" (the request text to process)'
+        message: 'Missing required fields: type, data, and prompt are required'
       });
     }
-
-    // Ensure data is always an object to prevent runtime errors when destructuring
-    const safeData = data || {};
 
     // Check if OpenAI is available
     const hasValidOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
 
     let generatedEmail;
-    // Declare prompts here so they are in scope for fallback as well
-    let systemPrompt = "";
-    let userPrompt = "";
-
+    
     if (hasValidOpenAIKey) {
       try {
+        let systemPrompt = "";
+        let userPrompt = "";
+
         // Extract and analyze user intention for all cases
         const cleanInstruction = extractUserIntention(prompt);
         const emailIntent = analyzeEmailIntent(cleanInstruction);
@@ -150,10 +136,10 @@ const generateEmail = asyncHandler(async (req, res) => {
           userPrompt = cleanInstruction;
           
         } else if (type === 'candidate_email' || type === 'candidate') {
-          const candidateName = safeData.firstName && safeData.lastName ? `${safeData.firstName} ${safeData.lastName}` : 'Candidate';
-          const candidatePosition = safeData.experience || safeData.position || 'the position';
-          const candidateSkills = safeData.skills ? safeData.skills.join(', ') : 'various technical skills';
-          const candidateEducation = safeData.education || 'relevant educational background';
+          const candidateName = data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : 'Candidate';
+          const candidatePosition = data.experience || data.position || 'the position';
+          const candidateSkills = data.skills ? data.skills.join(', ') : 'various technical skills';
+          const candidateEducation = data.education || 'relevant educational background';
           
           // Build dynamic, intent-specific prompt for OpenAI
           systemPrompt = `You are a professional HR specialist writing an email to a job candidate. Your emails must be naturally human, empathetic, and professionally appropriate. Always write complete emails with proper greetings, body, and sign-offs.`;
@@ -197,8 +183,8 @@ Additional Context:
 Write the complete email content only. No explanations or meta-text.`;
           
         } else if (type === 'company_email' || type === 'company') {
-          const companyName = safeData.name || 'the company';
-          const contactPerson = safeData.contactPerson || safeData.contact_person || 'the team';
+          const companyName = data.name || 'the company';
+          const contactPerson = data.contactPerson || data.contact_person || 'the team';
           
           systemPrompt = `You are a professional business development representative writing business emails. Create natural, engaging emails that build relationships and drive business objectives.`;
           
@@ -254,7 +240,7 @@ Write the complete email content only. No explanations or meta-text.`;
       if (type === 'chat') {
         generatedEmail = `I apologize, but I'm currently unable to process your request due to a temporary service issue. Please try again in a moment, or contact support if the problem persists.`;
       } else {
-        const candidateName = safeData.firstName && safeData.lastName ? `${safeData.firstName} ${safeData.lastName}` : 'the recipient';
+        const candidateName = data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : 'the recipient';
         generatedEmail = `Dear ${candidateName},
 
 I apologize, but I'm currently unable to generate the requested email due to a temporary service issue. Please try again in a moment.

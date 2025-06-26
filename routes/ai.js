@@ -25,9 +25,4 @@ router.post('/generate-email', generateEmail);
 // @access  Private
 router.post('/analyze-cv', analyzeCv);
 
-// @route   POST /api/ai/chat-completion
-// @desc    General chat completion using AI (defaults to chat mode)
-// @access  Private
-router.post('/chat-completion', generateEmail);
-
 module.exports = router;
