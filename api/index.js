@@ -11,6 +11,7 @@ const jobsRouter = require('../routes/jobs');
 const skillsRouter = require('../routes/skills');
 const usersRouter = require('../routes/users');
 const jobApplicationsRouter = require('../routes/jobApplications');
+const projectsRouter = require('../routes/projects');
 
 // Import models
 const { Candidate, Company, Job, Skill, User, JobApplication } = require('../models');
@@ -36,6 +37,7 @@ app.use('/api/jobs', jobsRouter);
 app.use('/api/skills', skillsRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/job-applications', jobApplicationsRouter);
+app.use('/api/projects', projectsRouter);
 
 app.get('/', (req, res) => {
   res.send('CRM Server is running!');
@@ -53,3 +55,4 @@ module.exports.Job = Job;
 module.exports.Skill = Skill;
 module.exports.User = User;
 module.exports.JobApplication = JobApplication;
+module.exports.Project = Project;
