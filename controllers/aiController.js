@@ -105,7 +105,6 @@ const analyzeEmailIntent = (instruction) => {
 // @access  Private
 const generateEmail = asyncHandler(async (req, res) => {
   try {
-
     const { type, data, prompt } = req.body;
 
     // Validate required fields
@@ -120,7 +119,7 @@ const generateEmail = asyncHandler(async (req, res) => {
     const hasValidOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
 
     let generatedEmail;
-    
+
     if (hasValidOpenAIKey) {
       try {
         let systemPrompt = "";
@@ -134,43 +133,44 @@ const generateEmail = asyncHandler(async (req, res) => {
           // For chat queries, create a conversational AI response
           systemPrompt = `You are an intelligent AI recruitment assistant. Respond naturally and helpfully to user queries about recruitment, HR, and business communications. Be professional, concise, and actionable.`;
           userPrompt = cleanInstruction;
-          
+
         } else if (type === 'candidate_email' || type === 'candidate') {
-          const candidateName = data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : 'Candidate';
-          const candidatePosition = data.experience || data.position || 'the position';
-          const candidateSkills = data.skills ? data.skills.join(', ') : 'various technical skills';
+          // Accept both raw candidate object and context object
+          const candidateName = data.firstName && data.lastName
+            ? `${data.firstName} ${data.lastName}`
+            : data.candidate_name || 'Candidate';
+
+          const candidatePosition = data.experience || data.position || data.candidate_position || 'the position';
+          const candidateSkills = Array.isArray(data.skills)
+            ? data.skills.join(', ')
+            : data.skills || 'various technical skills';
           const candidateEducation = data.education || 'relevant educational background';
-          
+
           // Build dynamic, intent-specific prompt for OpenAI
           systemPrompt = `You are a professional HR specialist writing an email to a job candidate. Your emails must be naturally human, empathetic, and professionally appropriate. Always write complete emails with proper greetings, body, and sign-offs.`;
-          
+
           // Create context-aware prompt based on detected intent
           let contextualPrompt = '';
           switch (emailIntent.intent) {
             case 'dismissal':
               contextualPrompt = `Write a professional, respectful email to ${candidateName} (${candidatePosition}) explaining their employment termination. Use a compassionate but clear tone. Include appropriate next steps and appreciation for their contributions.`;
               break;
-              
             case 'job_offer':
               contextualPrompt = `Write an enthusiastic job offer email to ${candidateName} for the ${candidatePosition} position. Express excitement about their qualifications (${candidateSkills}) and outline next steps for joining the team.`;
               break;
-              
             case 'meeting_invitation':
               contextualPrompt = `Write a professional meeting invitation email to ${candidateName} regarding their ${candidatePosition} application. Include proposed timing and agenda details from the request.`;
               break;
-              
             case 'rejection':
               contextualPrompt = `Write a respectful rejection email to ${candidateName} for the ${candidatePosition} position. Be encouraging and leave the door open for future opportunities.`;
               break;
-              
             case 'follow_up':
               contextualPrompt = `Write a professional follow-up email to ${candidateName} regarding their ${candidatePosition} application status. Provide helpful updates and timeline expectations.`;
               break;
-              
             default:
               contextualPrompt = `Write a professional email to ${candidateName} (${candidatePosition}) addressing their request: "${cleanInstruction}". Be natural, helpful, and appropriate to the context.`;
           }
-          
+
           userPrompt = `${contextualPrompt}
 
 Additional Context:
@@ -181,17 +181,20 @@ Additional Context:
 - Specific Request: ${cleanInstruction}
 
 Write the complete email content only. No explanations or meta-text.`;
-          
+
         } else if (type === 'company_email' || type === 'company') {
-          const companyName = data.name || 'the company';
+          // Accept both raw company object and context object
+          const companyName = data.name || data.company_name || 'the company';
+          const industry = data.industry || 'the industry';
           const contactPerson = data.contactPerson || data.contact_person || 'the team';
-          
+
           systemPrompt = `You are a professional business development representative writing business emails. Create natural, engaging emails that build relationships and drive business objectives.`;
-          
+
           userPrompt = `Write a professional business email to ${contactPerson} at ${companyName} addressing this request: "${cleanInstruction}"
 
 Context:
 - Company: ${companyName}
+- Industry: ${industry}
 - Contact: ${contactPerson}
 - Purpose: ${cleanInstruction}
 
@@ -211,8 +214,8 @@ Write the complete email content only. No explanations or meta-text.`;
 
         generatedEmail = completion.choices[0].message.content.trim();
         generatedEmail += '\n\n<!-- Generated by GPT-4o -->';
-        
-              } catch (openaiError) {
+
+      } catch (openaiError) {
         // Try GPT-3.5-turbo as fallback
         try {
           const completion = await openai.chat.completions.create({
@@ -227,7 +230,7 @@ Write the complete email content only. No explanations or meta-text.`;
 
           generatedEmail = completion.choices[0].message.content.trim();
           generatedEmail += '\n\n<!-- Generated by GPT-3.5-turbo -->';
-          
+
         } catch (fallbackError) {
           generatedEmail = null; // Force minimal fallback
         }
@@ -236,11 +239,12 @@ Write the complete email content only. No explanations or meta-text.`;
 
     // Minimal fallback only for critical errors
     if (!generatedEmail) {
-      
       if (type === 'chat') {
         generatedEmail = `I apologize, but I'm currently unable to process your request due to a temporary service issue. Please try again in a moment, or contact support if the problem persists.`;
       } else {
-        const candidateName = data.firstName && data.lastName ? `${data.firstName} ${data.lastName}` : 'the recipient';
+        const candidateName = data.firstName && data.lastName
+          ? `${data.firstName} ${data.lastName}`
+          : data.candidate_name || data.name || 'the recipient';
         generatedEmail = `Dear ${candidateName},
 
 I apologize, but I'm currently unable to generate the requested email due to a temporary service issue. Please try again in a moment.
@@ -263,7 +267,7 @@ Best regards,
       actualSource = 'gpt-4o';
       generatedEmail = generatedEmail.replace('\n\n<!-- Generated by GPT-4o -->', '');
     } else if (generatedEmail.includes('<!-- Generated by GPT-3.5-turbo -->')) {
-      actualSource = 'gpt-3.5-turbo';  
+      actualSource = 'gpt-3.5-turbo';
       generatedEmail = generatedEmail.replace('\n\n<!-- Generated by GPT-3.5-turbo -->', '');
     }
 
@@ -329,29 +333,13 @@ const analyzeCv = asyncHandler(async (req, res) => {
     });
   }
 });
-const generateJobDescription = asyncHandler(async (req, res) => {
-  try {
-    const { position, company_name = 'Generic Company', industry = 'General', required_skills = [] } = req.body;
-
-    if (!position) {
-      return res.status(400).json({
-        success: false,
-        message: 'Position is required'
-      });
-    }
-
-    // Check if OpenAI is available
-    const hasValidOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
-
-    let jobDescription;
-    
-    if (hasValidOpenAIKey) {
-      try {
-        const systemPrompt = `You are an expert HR professional specializing in creating detailed, modern job descriptions. 
+ // 🧠 Helper - Génère les prompts système et utilisateur
+const buildJobDescriptionPrompts = (position, company, industry, skills) => {
+  const system = `You are an expert HR professional specializing in creating detailed, modern job descriptions. 
 Create a comprehensive job description that includes all key sections and maintains professional standards.`;
 
-        const userPrompt = `Create a detailed job description for a ${position} position${company_name ? ` at ${company_name}` : ''}${industry ? ` in the ${industry} industry` : ''}.
-${required_skills.length > 0 ? `\nRequired skills include: ${required_skills.join(', ')}` : ''}
+  const user = `Create a detailed job description for a ${position} position at ${company} in the ${industry} industry.
+${skills.length > 0 ? `\nRequired skills include: ${skills.join(', ')}` : ''}
 
 Include these sections:
 1. Company Overview
@@ -366,44 +354,96 @@ Include these sections:
 
 Format each section with clear headings and use bullet points for lists.`;
 
-        // Try GPT-4 first
-        const completion = await openai.chat.completions.create({
-          model: "gpt-4",
-          messages: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt }
-          ],
-          max_tokens: 1000,
-          temperature: 0.7
-        });
+  return { system, user };
+};
 
-        jobDescription = completion.choices[0].message.content.trim();
-        
-      } catch (openaiError) {
-        // Fallback to GPT-3.5-turbo
-        try {
-          const completion = await openai.chat.completions.create({
-            model: "gpt-3.5-turbo",
-            messages: [
-              { role: "system", content: systemPrompt },
-              { role: "user", content: userPrompt }
-            ],
-            max_tokens: 800,
-            temperature: 0.7
-          });
-
-          jobDescription = completion.choices[0].message.content.trim();
-          
-        } catch (fallbackError) {
-          console.error('OpenAI fallback failed:', fallbackError);
-          jobDescription = null;
-        }
-      }
+// 🔁 Helper - Fallback GPT-4 => GPT-3.5
+const generateJobDescriptionText = async (systemPrompt, userPrompt) => {
+  try {
+    const gpt4 = await openai.chat.completions.create({
+      model: 'gpt-4',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt },
+      ],
+      max_tokens: 1000,
+      temperature: 0.7,
+    });
+    return gpt4.choices[0].message.content.trim();
+  } catch (gpt4Error) {
+    console.warn('GPT-4 failed, switching to GPT-3.5:', gpt4Error.message);
+    try {
+      const gpt3 = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 800,
+        temperature: 0.7,
+      });
+      return gpt3.choices[0].message.content.trim();
+    } catch (gpt3Error) {
+      console.error('GPT-3.5 failed as well:', gpt3Error.message);
+      return null;
     }
+  }
+};
 
-    // Minimal fallback for when AI generation fails
-    if (!jobDescription) {
-      jobDescription = `Position: ${position}
+// 🧾 Helper - Parsing du texte généré
+const parseGeneratedJobDescription = (text, requiredSkills, position) => {
+  const sections = text.split('\n\n');
+
+  const extractList = (keyword) =>
+    sections.find(s => s.toLowerCase().includes(keyword))?.split('\n')
+      .filter(line => /^[-•]/.test(line.trim()))
+      .map(line => line.replace(/^[-•]\s*/, '')) || [];
+
+  const extractText = (keyword) =>
+    sections.find(s => s.toLowerCase().includes(keyword))?.replace(/^.*?:?\s*/i, '') || '';
+
+  return {
+    title: position,
+    company_overview: extractText('company overview'),
+    role_summary: extractText('role summary'),
+    key_responsibilities: extractList('responsibilities'),
+    required_qualifications: extractList('required qualifications'),
+    required_skills: requiredSkills.length > 0 ? requiredSkills : extractList('required skills'),
+    benefits: extractList('benefits'),
+    location_environment: extractText('location'),
+    application_process: extractText('application process'),
+    full_text: text,
+    generation_method: 'gpt'
+  };
+};
+
+// ✅ Controller: Generate Job Description
+const generateJobDescription = asyncHandler(async (req, res) => {
+  const {
+    position,
+    company_name = 'Generic Company',
+    industry = 'General',
+    required_skills = [],
+  } = req.body;
+
+  if (!position) {
+    return res.status(400).json({
+      success: false,
+      message: 'Position is required',
+    });
+  }
+
+  const hasOpenAI = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
+  let generatedText = null;
+
+  if (hasOpenAI) {
+    const { system, user } = buildJobDescriptionPrompts(position, company_name, industry, required_skills);
+    generatedText = await generateJobDescriptionText(system, user);
+  }
+
+  // ⛑️ Fallback manuel
+  if (!generatedText) {
+    generatedText = `Position: ${position}
 
 Company Overview:
 [Company overview would be generated here]
@@ -422,58 +462,22 @@ ${required_skills.length > 0 ? `\nRequired Skills:\n${required_skills.map(skill 
 Benefits:
 • Competitive salary
 • Professional development opportunities
-• [Additional benefits would be listed here]
 
 Location & Work Environment:
 [Location and work environment details would be provided here]
 
-How to Apply:
+Application Process:
 Please submit your application through our careers portal.`;
-    }
-
-    // Parse the generated content into structured sections
-    const sections = jobDescription.split('\n\n');
-    const structuredResponse = {
-      title: position,
-      company_overview: sections.find(s => s.toLowerCase().includes('company overview'))?.replace(/^.*?overview:?\s*/i, '') || '',
-      role_summary: sections.find(s => s.toLowerCase().includes('role summary'))?.replace(/^.*?summary:?\s*/i, '') || '',
-      key_responsibilities: sections.find(s => s.toLowerCase().includes('responsibilities'))
-        ?.split('\n')
-        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
-        .map(line => line.replace(/^[•-]\s*/, '')) || [],
-      required_qualifications: sections.find(s => s.toLowerCase().includes('qualifications'))
-        ?.split('\n')
-        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
-        .map(line => line.replace(/^[•-]\s*/, '')) || [],
-      required_skills: required_skills.length > 0 ? required_skills :
-        sections.find(s => s.toLowerCase().includes('skills'))
-          ?.split('\n')
-          .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
-          .map(line => line.replace(/^[•-]\s*/, '')) || [],
-      benefits: sections.find(s => s.toLowerCase().includes('benefits'))
-        ?.split('\n')
-        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
-        .map(line => line.replace(/^[•-]\s*/, '')) || [],
-      location_environment: sections.find(s => s.toLowerCase().includes('location'))?.replace(/^.*?environment:?\s*/i, '') || '',
-      application_process: sections.find(s => s.toLowerCase().includes('apply'))?.replace(/^.*?apply:?\s*/i, '') || '',
-      full_text: jobDescription,
-      generation_method: hasValidOpenAIKey ? 'gpt' : 'fallback'
-    };
-
-    res.status(200).json({
-      success: true,
-      data: structuredResponse
-    });
-
-  } catch (error) {
-    console.error('Error generating job description:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Internal server error while generating job description',
-      error: error.message
-    });
   }
+
+  const parsed = parseGeneratedJobDescription(generatedText, required_skills, position);
+
+  res.status(200).json({
+    success: true,
+    data: parsed
+  });
 });
+
 
 module.exports = {
   generateEmail,
