@@ -333,29 +333,6 @@ const analyzeCv = asyncHandler(async (req, res) => {
     });
   }
 });
- // 🧠 Helper - Génère les prompts système et utilisateur
-const buildJobDescriptionPrompts = (position, company, industry, skills) => {
-  const system = `You are an expert HR professional specializing in creating detailed, modern job descriptions. 
-Create a comprehensive job description that includes all key sections and maintains professional standards.`;
-
-  const user = `Create a detailed job description for a ${position} position at ${company} in the ${industry} industry.
-${skills.length > 0 ? `\nRequired skills include: ${skills.join(', ')}` : ''}
-
-Include these sections:
-1. Company Overview
-2. Role Summary
-3. Key Responsibilities
-4. Required Qualifications
-5. Required Skills
-6. Preferred Qualifications (if applicable)
-7. Benefits
-8. Location & Work Environment
-9. Application Process
-
-Format each section with clear headings and use bullet points for lists.`;
-
-  return { system, user };
-};
 
 // 🔁 Helper - Fallback GPT-4 => GPT-3.5
 const generateJobDescriptionText = async (systemPrompt, userPrompt) => {
@@ -419,62 +396,80 @@ const parseGeneratedJobDescription = (text, requiredSkills, position) => {
 
 // ✅ Controller: Generate Job Description
 const generateJobDescription = asyncHandler(async (req, res) => {
-  const {
-    position,
-    company_name = 'Generic Company',
-    industry = 'General',
-    required_skills = [],
-  } = req.body;
+  const { position, required_skills = [] } = req.body;
 
   if (!position) {
     return res.status(400).json({
       success: false,
-      message: 'Position is required',
+      message: 'A detailed job description prompt is required.',
     });
   }
 
   const hasOpenAI = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
-  let generatedText = null;
-
-  if (hasOpenAI) {
-    const { system, user } = buildJobDescriptionPrompts(position, company_name, industry, required_skills);
-    generatedText = await generateJobDescriptionText(system, user);
+  if (!hasOpenAI) {
+    return res.status(503).json({
+      success: false,
+      message: 'OpenAI API key not configured. Cannot generate job description.',
+    });
   }
 
-  // ⛑️ Fallback manuel
-  if (!generatedText) {
-    generatedText = `Position: ${position}
+  // Build prompts
+  const systemPrompt = `You are an expert HR professional. Write detailed, modern job descriptions with realistic, specific content for each section.`;
+  const userPrompt = `Create a detailed job description based on the following requirements:\n${position}\n${required_skills.length > 0 ? `\nRequired skills: ${required_skills.join(', ')}` : ''}\n\nInclude all standard sections: Company Overview, Role Summary, Key Responsibilities, Required Qualifications, Required Skills, Benefits, Location & Work Environment, Application Process. Fill out each section with realistic, specific content.`;
 
-Company Overview:
-[Company overview would be generated here]
+  let aiResponse = null;
+  let modelUsed = 'gpt-4o';
 
-Role Summary:
-We are seeking an experienced ${position} to join our team.
-
-Key Responsibilities:
-• [Key responsibilities would be listed here]
-• [Additional responsibilities]
-
-Required Qualifications:
-• [Required qualifications would be listed here]
-${required_skills.length > 0 ? `\nRequired Skills:\n${required_skills.map(skill => `• ${skill}`).join('\n')}` : ''}
-
-Benefits:
-• Competitive salary
-• Professional development opportunities
-
-Location & Work Environment:
-[Location and work environment details would be provided here]
-
-Application Process:
-Please submit your application through our careers portal.`;
+  try {
+    // Try GPT-4o first, with a timeout
+    aiResponse = await Promise.race([
+      openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 1200,
+        temperature: 0.7,
+      }),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('OpenAI request timed out')), 15000))
+    ]);
+  } catch (err) {
+    // Fallback to GPT-3.5-turbo if GPT-4o fails or times out
+    modelUsed = 'gpt-3.5-turbo';
+    try {
+      aiResponse = await openai.chat.completions.create({
+        model: 'gpt-3.5-turbo',
+        messages: [
+          { role: 'system', content: systemPrompt },
+          { role: 'user', content: userPrompt },
+        ],
+        max_tokens: 1000,
+        temperature: 0.7,
+      });
+    } catch (err2) {
+      return res.status(500).json({
+        success: false,
+        message: 'Failed to generate job description with OpenAI.',
+        error: err2.message,
+      });
+    }
   }
 
-  const parsed = parseGeneratedJobDescription(generatedText, required_skills, position);
+  // Extract the AI's response text
+  const text = aiResponse.choices?.[0]?.message?.content?.trim() || '';
+
+  // Optionally, parse the text into sections (reuse your parseGeneratedJobDescription)
+  const parsed = parseGeneratedJobDescription(text, required_skills, position);
 
   res.status(200).json({
     success: true,
-    data: parsed
+    data: {
+      ...parsed,
+      full_text: text,
+      model: modelUsed,
+      generatedAt: new Date().toISOString(),
+    }
   });
 });
 
