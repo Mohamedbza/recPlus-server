@@ -329,8 +329,154 @@ const analyzeCv = asyncHandler(async (req, res) => {
     });
   }
 });
+const generateJobDescription = asyncHandler(async (req, res) => {
+  try {
+    const { position, company_name = 'Generic Company', industry = 'General', required_skills = [] } = req.body;
+
+    if (!position) {
+      return res.status(400).json({
+        success: false,
+        message: 'Position is required'
+      });
+    }
+
+    // Check if OpenAI is available
+    const hasValidOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
+
+    let jobDescription;
+    
+    if (hasValidOpenAIKey) {
+      try {
+        const systemPrompt = `You are an expert HR professional specializing in creating detailed, modern job descriptions. 
+Create a comprehensive job description that includes all key sections and maintains professional standards.`;
+
+        const userPrompt = `Create a detailed job description for a ${position} position${company_name ? ` at ${company_name}` : ''}${industry ? ` in the ${industry} industry` : ''}.
+${required_skills.length > 0 ? `\nRequired skills include: ${required_skills.join(', ')}` : ''}
+
+Include these sections:
+1. Company Overview
+2. Role Summary
+3. Key Responsibilities
+4. Required Qualifications
+5. Required Skills
+6. Preferred Qualifications (if applicable)
+7. Benefits
+8. Location & Work Environment
+9. Application Process
+
+Format each section with clear headings and use bullet points for lists.`;
+
+        // Try GPT-4 first
+        const completion = await openai.chat.completions.create({
+          model: "gpt-4",
+          messages: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt }
+          ],
+          max_tokens: 1000,
+          temperature: 0.7
+        });
+
+        jobDescription = completion.choices[0].message.content.trim();
+        
+      } catch (openaiError) {
+        // Fallback to GPT-3.5-turbo
+        try {
+          const completion = await openai.chat.completions.create({
+            model: "gpt-3.5-turbo",
+            messages: [
+              { role: "system", content: systemPrompt },
+              { role: "user", content: userPrompt }
+            ],
+            max_tokens: 800,
+            temperature: 0.7
+          });
+
+          jobDescription = completion.choices[0].message.content.trim();
+          
+        } catch (fallbackError) {
+          console.error('OpenAI fallback failed:', fallbackError);
+          jobDescription = null;
+        }
+      }
+    }
+
+    // Minimal fallback for when AI generation fails
+    if (!jobDescription) {
+      jobDescription = `Position: ${position}
+
+Company Overview:
+[Company overview would be generated here]
+
+Role Summary:
+We are seeking an experienced ${position} to join our team.
+
+Key Responsibilities:
+• [Key responsibilities would be listed here]
+• [Additional responsibilities]
+
+Required Qualifications:
+• [Required qualifications would be listed here]
+${required_skills.length > 0 ? `\nRequired Skills:\n${required_skills.map(skill => `• ${skill}`).join('\n')}` : ''}
+
+Benefits:
+• Competitive salary
+• Professional development opportunities
+• [Additional benefits would be listed here]
+
+Location & Work Environment:
+[Location and work environment details would be provided here]
+
+How to Apply:
+Please submit your application through our careers portal.`;
+    }
+
+    // Parse the generated content into structured sections
+    const sections = jobDescription.split('\n\n');
+    const structuredResponse = {
+      title: position,
+      company_overview: sections.find(s => s.toLowerCase().includes('company overview'))?.replace(/^.*?overview:?\s*/i, '') || '',
+      role_summary: sections.find(s => s.toLowerCase().includes('role summary'))?.replace(/^.*?summary:?\s*/i, '') || '',
+      key_responsibilities: sections.find(s => s.toLowerCase().includes('responsibilities'))
+        ?.split('\n')
+        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
+        .map(line => line.replace(/^[•-]\s*/, '')) || [],
+      required_qualifications: sections.find(s => s.toLowerCase().includes('qualifications'))
+        ?.split('\n')
+        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
+        .map(line => line.replace(/^[•-]\s*/, '')) || [],
+      required_skills: required_skills.length > 0 ? required_skills :
+        sections.find(s => s.toLowerCase().includes('skills'))
+          ?.split('\n')
+          .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
+          .map(line => line.replace(/^[•-]\s*/, '')) || [],
+      benefits: sections.find(s => s.toLowerCase().includes('benefits'))
+        ?.split('\n')
+        .filter(line => line.trim().startsWith('•') || line.trim().startsWith('-'))
+        .map(line => line.replace(/^[•-]\s*/, '')) || [],
+      location_environment: sections.find(s => s.toLowerCase().includes('location'))?.replace(/^.*?environment:?\s*/i, '') || '',
+      application_process: sections.find(s => s.toLowerCase().includes('apply'))?.replace(/^.*?apply:?\s*/i, '') || '',
+      full_text: jobDescription,
+      generation_method: hasValidOpenAIKey ? 'gpt' : 'fallback'
+    };
+
+    res.status(200).json({
+      success: true,
+      data: structuredResponse
+    });
+
+  } catch (error) {
+    console.error('Error generating job description:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Internal server error while generating job description',
+      error: error.message
+    });
+  }
+});
 
 module.exports = {
   generateEmail,
-  analyzeCv
+  analyzeCv,
+  generateJobDescription
 };
