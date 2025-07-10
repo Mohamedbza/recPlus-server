@@ -1,4 +1,5 @@
 const Company = require('../models/company');
+const bcrypt = require('bcryptjs');
 
 // Get all companies
 const getAllCompanies = async (req, res) => {
@@ -58,28 +59,58 @@ const getCompanyById = async (req, res) => {
 };
 
 // Create new company
-  const createCompany = async (req, res) => {
-    try {
-      const company = new Company(req.body);
-      const newCompany = await company.save();
-      res.status(201).json(newCompany);
-    } catch (error) {
-      res.status(400).json({ message: error.message });
-    }
-  };
+const createCompany = async (req, res) => {
+  try {
+    const { password, ...companyData } = req.body;
+    
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const company = new Company({
+      ...companyData,
+      password: hashedPassword
+    });
+    
+    const newCompany = await company.save();
+    
+    // Remove password from response
+    const companyResponse = newCompany.toObject();
+    delete companyResponse.password;
+    
+    res.status(201).json(companyResponse);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
 
 // Update company
 const updateCompany = async (req, res) => {
   try {
+    const { password, ...updateData } = req.body;
+    
+    // If password is provided, hash it
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      updateData.password = hashedPassword;
+    }
+    
     const company = await Company.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
+    
     if (!company) {
       return res.status(404).json({ message: 'Company not found' });
     }
-    res.json(company);
+    
+    // Remove password from response
+    const companyResponse = company.toObject();
+    delete companyResponse.password;
+    
+    res.json(companyResponse);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }

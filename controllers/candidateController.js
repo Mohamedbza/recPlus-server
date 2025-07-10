@@ -1,4 +1,5 @@
 const Candidate = require('../models/candidate');
+const bcrypt = require('bcryptjs');
 
 // Get all candidates
 const getAllCandidates = async (req, res) => {
@@ -56,9 +57,24 @@ const getCandidateById = async (req, res) => {
 // Create new candidate
 const createCandidate = async (req, res) => {
   try {
-    const candidate = new Candidate(req.body);
+    const { password, ...candidateData } = req.body;
+    
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const candidate = new Candidate({
+      ...candidateData,
+      password: hashedPassword
+    });
+    
     const newCandidate = await candidate.save();
-    res.status(201).json(newCandidate);
+    
+    // Remove password from response
+    const candidateResponse = newCandidate.toObject();
+    delete candidateResponse.password;
+    
+    res.status(201).json(candidateResponse);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -67,15 +83,30 @@ const createCandidate = async (req, res) => {
 // Update candidate
 const updateCandidate = async (req, res) => {
   try {
+    const { password, ...updateData } = req.body;
+    
+    // If password is provided, hash it
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      updateData.password = hashedPassword;
+    }
+    
     const candidate = await Candidate.findByIdAndUpdate(
       req.params.id,
-      req.body,
+      updateData,
       { new: true, runValidators: true }
     );
+    
     if (!candidate) {
       return res.status(404).json({ message: 'Candidate not found' });
     }
-    res.json(candidate);
+    
+    // Remove password from response
+    const candidateResponse = candidate.toObject();
+    delete candidateResponse.password;
+    
+    res.json(candidateResponse);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
