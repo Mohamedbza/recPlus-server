@@ -6,6 +6,11 @@ const companySchema = new mongoose.Schema({
     required: true,
     trim: true
   },
+  password: {
+    type: String,
+    required: true,
+    minlength: 6
+  },
   industry: {
     type: String,
     required: true,
