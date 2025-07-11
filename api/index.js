@@ -2,6 +2,7 @@ require('dotenv').config({ path: __dirname + '/../.env' });
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 
 // Import routes
 const candidatesRouter = require('../routes/candidates');
@@ -22,6 +23,24 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Configure CORS
+const corsOptions = {
+  origin: [
+    'http://localhost:3000',           // Local development
+    'http://localhost:3001',           // Local development alternate
+    'https://recplus.vercel.app',      // Production frontend
+    'https://www.recplus.vercel.app',  // Production frontend with www
+    /\.vercel\.app$/,                  // Any vercel.app subdomain
+    'http://localhost:*'               // Any localhost port
+  ],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
+  credentials: true,
+  maxAge: 86400 // 24 hours
+};
+
+app.use(cors(corsOptions));
+
 // Remove duplicate body parser
 app.use(express.json({ 
   limit: '10mb',
@@ -38,6 +57,9 @@ app.use(express.json({
   }
 }));
 
+// Add CORS headers for preflight requests
+app.options('*', cors(corsOptions));
+
 // Enhanced debug middleware
 app.use((req, res, next) => {
   console.log(`\n🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
@@ -51,6 +73,15 @@ app.use((req, res, next) => {
     console.log('🔍 Has password:', 'password' in req.body);
   }
   
+  next();
+});
+
+// Add CORS headers to all responses
+app.use((req, res, next) => {
+  res.header('Access-Control-Allow-Origin', req.headers.origin);
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   next();
 });
 
