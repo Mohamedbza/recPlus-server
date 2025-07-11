@@ -5,10 +5,7 @@ const {
   getJobById,
   createJob,
   updateJob,
-  deleteJob,
-  getJobsByCompany,
-  getRemoteJobs,
-  getFeaturedJobs
+  deleteJob
 } = require('../controllers/jobController');
 
 // GET all jobs
@@ -25,14 +22,5 @@ router.put('/:id', updateJob);
 
 // DELETE job
 router.delete('/:id', deleteJob);
-
-// GET jobs by company
-router.get('/company/:companyId', getJobsByCompany);
-
-// GET remote jobs
-router.get('/remote/all', getRemoteJobs);
-
-// GET featured jobs
-router.get('/featured/all', getFeaturedJobs);
 
 module.exports = router; 

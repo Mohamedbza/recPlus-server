@@ -5,12 +5,7 @@ const {
   getJobApplicationById,
   createJobApplication,
   updateJobApplication,
-  deleteJobApplication,
-  getJobApplicationsByCandidate,
-  getJobApplicationsByJob,
-  getJobApplicationsByCompany,
-  updateJobApplicationStatus,
-  addJobApplicationFeedback
+  deleteJobApplication
 } = require('../controllers/jobApplicationController');
 
 // GET all job applications
@@ -27,20 +22,5 @@ router.put('/:id', updateJobApplication);
 
 // DELETE job application
 router.delete('/:id', deleteJobApplication);
-
-// GET job applications by candidate
-router.get('/candidate/:candidateId', getJobApplicationsByCandidate);
-
-// GET job applications by job
-router.get('/job/:jobId', getJobApplicationsByJob);
-
-// GET job applications by company
-// router.get('/company/:companyId', getJobApplicationsByCompany);
-
-// PATCH update job application status
-router.patch('/:id/status', updateJobApplicationStatus);
-
-// PATCH add feedback to job application
-router.patch('/:id/feedback', addJobApplicationFeedback);
 
 module.exports = router; 

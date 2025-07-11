@@ -5,9 +5,7 @@ const {
   getCompanyById,
   createCompany,
   updateCompany,
-  deleteCompany,
-  getCompaniesByIndustry,
-  getVerifiedCompanies
+  deleteCompany
 } = require('../controllers/companyController');
 
 // GET all companies
@@ -24,11 +22,5 @@ router.put('/:id', updateCompany);
 
 // DELETE company
 router.delete('/:id', deleteCompany);
-
-// GET companies by industry
-router.get('/industry/:industry', getCompaniesByIndustry);
-
-// GET verified companies
-router.get('/verified/all', getVerifiedCompanies);
 
 module.exports = router; 
