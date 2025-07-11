@@ -14,6 +14,9 @@ const jobApplicationsRouter = require('../routes/jobApplications');
 const aiRouter = require('../routes/ai');
 const projectsRouter = require('../routes/projects');
 
+// Import auth middleware
+const auth = require('../middleware/auth');
+
 // Import models
 const { Candidate, Company, Job, Skill, User, JobApplication , Project } = require('../models');
 
@@ -79,15 +82,22 @@ const regionAccess = (req, res, next) => {
 
 // Routes 
 console.log('🔗 Mounting routes...');
-app.use('/api/candidates', candidatesRouter);
-app.use('/api/companies', companiesRouter);
-app.use('/api/jobs', jobsRouter);
-app.use('/api/skills', skillsRouter);
-app.use('/api/users', usersRouter);
-app.use('/api/job-applications', jobApplicationsRouter);
+
+// Protected routes with region access
+app.use('/api/candidates', auth, regionAccess, candidatesRouter);
+app.use('/api/companies', auth, regionAccess, companiesRouter);
+app.use('/api/jobs', auth, regionAccess, jobsRouter);
+app.use('/api/job-applications', auth, regionAccess, jobApplicationsRouter);
+app.use('/api/users', auth, regionAccess, usersRouter);
+
+// Protected routes without region access
+app.use('/api/skills', auth, skillsRouter);
+app.use('/api/projects', auth, projectsRouter);
+
+// Public routes
 app.use('/api/ai', aiRouter);
+
 console.log('✅ All routes mounted successfully');
-app.use('/api/projects', projectsRouter);
 
 app.get('/', (req, res) => {
   res.send('CRM Server is running!');
