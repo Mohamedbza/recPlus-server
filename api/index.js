@@ -2,7 +2,6 @@ require('dotenv').config({ path: __dirname + '/../.env' });
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
-const cors = require('cors');
 
 // Import routes
 const candidatesRouter = require('../routes/candidates');
@@ -38,7 +37,6 @@ app.use(express.json({
     }
   }
 }));
-app.use(cors());
 
 // Enhanced debug middleware
 app.use((req, res, next) => {
