@@ -60,15 +60,31 @@ mongoose.connect(DB)
   .then(() => console.log('MongoDB connection successful'))
   .catch((e) => console.error('MongoDB connection error:', e));
 
+// Region access middleware
+const regionAccess = (req, res, next) => {
+  // Skip region check for super_admin
+  if (req.user && req.user.role === 'super_admin') {
+    return next();
+  }
+
+  // For other roles, ensure they have a region
+  if (!req.user || !req.user.region) {
+    return res.status(403).json({ message: 'Region access denied' });
+  }
+
+  // Add region to request for use in controllers
+  req.userRegion = req.user.region;
+  next();
+};
 
 // Routes 
 console.log('🔗 Mounting routes...');
-app.use('/api/candidates', candidatesRouter);
-app.use('/api/companies', companiesRouter);
-app.use('/api/jobs', jobsRouter);
+app.use('/api/candidates', regionAccess, candidatesRouter);
+app.use('/api/companies', regionAccess, companiesRouter);
+app.use('/api/jobs', regionAccess, jobsRouter);
 app.use('/api/skills', skillsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/job-applications', jobApplicationsRouter);
+app.use('/api/job-applications', regionAccess, jobApplicationsRouter);
 app.use('/api/ai', aiRouter);
 console.log('✅ All routes mounted successfully');
 app.use('/api/projects', projectsRouter);

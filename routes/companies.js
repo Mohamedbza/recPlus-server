@@ -7,10 +7,6 @@ const {
   updateCompany,
   deleteCompany
 } = require('../controllers/companyController');
-const regionAccess = require('../middleware/regionAccess');
-
-// Apply region access middleware to all routes
-router.use(regionAccess);
 
 // GET all companies
 router.get('/', getAllCompanies);
