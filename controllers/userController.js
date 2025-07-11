@@ -27,17 +27,25 @@ const loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    // Check if user has a region assigned
+    if (!user.region) {
+      return res.status(403).json({ 
+        message: 'Account setup incomplete',
+        error: 'No region assigned to user'
+      });
+    }
+
     // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate JWT token
+    // Generate JWT token with region
     const token = jwt.sign(
       { 
         userId: user._id, 
         email: user.email, 
         role: user.role,
-        region: user.region 
+        region: user.region.toLowerCase() // Ensure region is included and lowercase
       },
       JWT_SECRET,
       { expiresIn: '24h' }
@@ -52,6 +60,7 @@ const loginUser = async (req, res) => {
       user: userResponse
     });
   } catch (error) {
+    console.error('Login error:', error);
     res.status(500).json({ message: error.message });
   }
 };
@@ -66,16 +75,44 @@ const verifyToken = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('-password');
     
-    if (!user || !user.isActive) {
-      return res.status(401).json({ message: 'Invalid token' });
+    // Find user and explicitly select region
+    const user = await User.findById(decoded.userId)
+      .select('-password')
+      .lean();
+    
+    if (!user) {
+      return res.status(401).json({ message: 'User not found' });
     }
 
+    if (!user.isActive) {
+      return res.status(401).json({ message: 'User account is deactivated' });
+    }
+
+    // Check if user has region
+    if (!user.region) {
+      return res.status(403).json({ 
+        message: 'Account setup incomplete',
+        error: 'No region assigned to user'
+      });
+    }
+
+    // Set user and decoded info on request
     req.user = user;
+    req.token = token;
+    req.decoded = decoded;
+
+    console.log('🔐 Token verified for user:', {
+      id: user._id,
+      email: user.email,
+      role: user.role,
+      region: user.region
+    });
+
     next();
   } catch (error) {
-    res.status(401).json({ message: 'Invalid token' });
+    console.error('Token verification error:', error);
+    res.status(401).json({ message: 'Invalid token', error: error.message });
   }
 };
 

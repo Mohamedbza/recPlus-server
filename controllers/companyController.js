@@ -4,13 +4,13 @@ const bcrypt = require('bcryptjs');
 // Get all companies
 const getAllCompanies = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, industry, status, location } = req.query;
+    const { page = 1, limit = 10, search, industry, status } = req.query;
     
     let query = {};
     
-    // Add region filter if provided in query
-    if (location) {
-      query.location = location;
+    // Region filter from user's region
+    if (req.userRegion) {
+      query.location = req.userRegion;
     }
     
     // Search functionality
@@ -20,6 +20,15 @@ const getAllCompanies = async (req, res) => {
         { industry: { $regex: search, $options: 'i' } },
         { email: { $regex: search, $options: 'i' } }
       ];
+      
+      // Ensure region filter is applied to search results
+      if (req.userRegion) {
+        query.$and = [
+          { location: req.userRegion },
+          { $or: query.$or }
+        ];
+        delete query.$or;
+      }
     }
     
     // Industry filter
@@ -53,9 +62,16 @@ const getAllCompanies = async (req, res) => {
 // Get company by ID
 const getCompanyById = async (req, res) => {
   try {
-    const company = await Company.findById(req.params.id);
+    const query = { _id: req.params.id };
+    
+    // Add region check for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const company = await Company.findOne(query);
     if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+      return res.status(404).json({ message: 'Company not found in your region' });
     }
     res.json(company);
   } catch (error) {
@@ -67,6 +83,11 @@ const getCompanyById = async (req, res) => {
 const createCompany = async (req, res) => {
   try {
     const { password, ...companyData } = req.body;
+    
+    // Force location to user's region for non-super_admin users
+    if (req.userRegion) {
+      companyData.location = req.userRegion;
+    }
     
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -93,6 +114,21 @@ const createCompany = async (req, res) => {
 const updateCompany = async (req, res) => {
   try {
     const { password, ...updateData } = req.body;
+    
+    // For non-super_admin users, ensure company exists in their region
+    if (req.userRegion) {
+      const existingCompany = await Company.findOne({
+        _id: req.params.id,
+        location: req.userRegion
+      });
+      
+      if (!existingCompany) {
+        return res.status(404).json({ message: 'Company not found in your region' });
+      }
+      
+      // Force location to user's region
+      updateData.location = req.userRegion;
+    }
     
     // If password is provided, hash it
     if (password) {
@@ -124,9 +160,16 @@ const updateCompany = async (req, res) => {
 // Delete company
 const deleteCompany = async (req, res) => {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id);
+    const query = { _id: req.params.id };
+    
+    // Add region check for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const company = await Company.findOneAndDelete(query);
     if (!company) {
-      return res.status(404).json({ message: 'Company not found' });
+      return res.status(404).json({ message: 'Company not found in your region' });
     }
     res.json({ message: 'Company deleted successfully' });
   } catch (error) {

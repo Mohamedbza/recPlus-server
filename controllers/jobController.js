@@ -8,10 +8,9 @@ const getAllJobs = async (req, res) => {
     
     let query = {};
     
-    // For non-super_admin users, first get companies in their region
+    // For non-super_admin users, filter by region
     if (req.userRegion) {
-      const companyIds = await Company.find({ location: req.userRegion }).select('_id');
-      query.companyId = { $in: companyIds.map(c => c._id) };
+      query.location = req.userRegion;
     }
     
     // Search functionality
@@ -21,6 +20,15 @@ const getAllJobs = async (req, res) => {
         { description: { $regex: search, $options: 'i' } },
         { department: { $regex: search, $options: 'i' } }
       ];
+      
+      // Ensure region filter is applied to search results
+      if (req.userRegion) {
+        query.$and = [
+          { location: req.userRegion },
+          { $or: query.$or }
+        ];
+        delete query.$or;
+      }
     }
     
     // Status filter
@@ -62,15 +70,14 @@ const getJobById = async (req, res) => {
   try {
     let query = { _id: req.params.id };
     
-    // For non-super_admin users, first get companies in their region
+    // For non-super_admin users, filter by region
     if (req.userRegion) {
-      const companyIds = await Company.find({ location: req.userRegion }).select('_id');
-      query.companyId = { $in: companyIds.map(c => c._id) };
+      query.location = req.userRegion;
     }
     
     const job = await Job.findOne(query).populate('companyId', 'name logo location');
     if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
+      return res.status(404).json({ message: 'Job not found in your region' });
     }
     res.json(job);
   } catch (error) {
@@ -83,12 +90,13 @@ const createJob = async (req, res) => {
   try {
     const jobData = req.body;
     
-    // For non-super_admin users, verify company is in their region
+    // For non-super_admin users, verify company is in their region and set job location
     if (req.userRegion) {
       const company = await Company.findById(jobData.companyId);
       if (!company || company.location !== req.userRegion) {
         return res.status(403).json({ message: 'Cannot create job for company outside your region' });
       }
+      jobData.location = req.userRegion;
     }
     
     const job = new Job(jobData);
@@ -106,15 +114,19 @@ const createJob = async (req, res) => {
 // Update job
 const updateJob = async (req, res) => {
   try {
-    // For non-super_admin users, verify job belongs to company in their region
+    // For non-super_admin users, verify job exists in their region
     if (req.userRegion) {
-      const job = await Job.findById(req.params.id).populate('companyId', 'location');
-      if (!job) {
-        return res.status(404).json({ message: 'Job not found' });
+      const existingJob = await Job.findOne({
+        _id: req.params.id,
+        location: req.userRegion
+      });
+      
+      if (!existingJob) {
+        return res.status(404).json({ message: 'Job not found in your region' });
       }
-      if (job.companyId.location !== req.userRegion) {
-        return res.status(403).json({ message: 'Cannot update job from company outside your region' });
-      }
+      
+      // Force location to user's region
+      req.body.location = req.userRegion;
     }
     
     const job = await Job.findByIdAndUpdate(
@@ -136,20 +148,16 @@ const updateJob = async (req, res) => {
 // Delete job
 const deleteJob = async (req, res) => {
   try {
-    // For non-super_admin users, verify job belongs to company in their region
+    const query = { _id: req.params.id };
+    
+    // For non-super_admin users, verify job exists in their region
     if (req.userRegion) {
-      const job = await Job.findById(req.params.id).populate('companyId', 'location');
-      if (!job) {
-        return res.status(404).json({ message: 'Job not found' });
-      }
-      if (job.companyId.location !== req.userRegion) {
-        return res.status(403).json({ message: 'Cannot delete job from company outside your region' });
-      }
+      query.location = req.userRegion;
     }
     
-    const job = await Job.findByIdAndDelete(req.params.id);
+    const job = await Job.findOneAndDelete(query);
     if (!job) {
-      return res.status(404).json({ message: 'Job not found' });
+      return res.status(404).json({ message: 'Job not found in your region' });
     }
     res.json({ message: 'Job deleted successfully' });
   } catch (error) {

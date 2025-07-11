@@ -14,6 +14,10 @@ const jobApplicationsRouter = require('../routes/jobApplications');
 const aiRouter = require('../routes/ai');
 const projectsRouter = require('../routes/projects');
 
+// Import middleware
+const regionAccessMiddleware = require('../middleware/regionAccess');
+const { verifyToken } = require('../controllers/userController');
+
 // Import models
 const { Candidate, Company, Job, Skill, User, JobApplication , Project } = require('../models');
 
@@ -43,6 +47,7 @@ app.use((req, res, next) => {
   console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
   console.log('📋 Content-Type:', req.headers['content-type']);
   console.log('📋 Content-Length:', req.headers['content-length']);
+  console.log('🔑 Authorization:', req.headers['authorization'] ? 'Present' : 'Missing');
   
   // Check if body is parsed correctly
   if (req.method !== 'GET' && req.headers['content-type']?.includes('application/json')) {
@@ -60,34 +65,34 @@ mongoose.connect(DB)
   .then(() => console.log('MongoDB connection successful'))
   .catch((e) => console.error('MongoDB connection error:', e));
 
-// Region access middleware
-const regionAccess = (req, res, next) => {
-  // Skip region check for super_admin
-  if (req.user && req.user.role === 'super_admin') {
-    return next();
-  }
-
-  // For other roles, ensure they have a region
-  if (!req.user || !req.user.region) {
-    return res.status(403).json({ message: 'Region access denied' });
-  }
-
-  // Add region to request for use in controllers
-  req.userRegion = req.user.region;
-  next();
-};
-
-// Routes 
+// Routes with region access middleware
 console.log('🔗 Mounting routes...');
-app.use('/api/candidates', regionAccess, candidatesRouter);
-app.use('/api/companies', regionAccess, companiesRouter);
-app.use('/api/jobs', regionAccess, jobsRouter);
+// First verify token, then check region access
+app.use('/api/candidates', verifyToken, regionAccessMiddleware, candidatesRouter);
+app.use('/api/companies', verifyToken, regionAccessMiddleware, companiesRouter);
+app.use('/api/jobs', verifyToken, regionAccessMiddleware, jobsRouter);
+app.use('/api/job-applications', verifyToken, regionAccessMiddleware, jobApplicationsRouter);
+app.use('/api/projects', verifyToken, regionAccessMiddleware, projectsRouter);
+
+// Routes without region access middleware
 app.use('/api/skills', skillsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/job-applications', regionAccess, jobApplicationsRouter);
 app.use('/api/ai', aiRouter);
 console.log('✅ All routes mounted successfully');
-app.use('/api/projects', projectsRouter);
+
+// Add authentication debug route
+app.get('/api/debug/auth', verifyToken, (req, res) => {
+  res.json({
+    message: 'Authentication debug info',
+    user: {
+      id: req.user._id,
+      email: req.user.email,
+      role: req.user.role,
+      region: req.user.region
+    },
+    token: req.headers.authorization?.replace('Bearer ', '')
+  });
+});
 
 app.get('/', (req, res) => {
   res.send('CRM Server is running!');
@@ -122,7 +127,7 @@ app.get('/api/test', (req, res) => {
 });
 
 // Add 404 handler for debugging
-app.use('/api/*', (req, res, next) => {
+app.use('/api/*', (req, res) => {
   console.log('🔍 DEBUG: Unmatched API route accessed:');
   console.log('   📍 Method:', req.method);
   console.log('   📍 Original URL:', req.originalUrl);

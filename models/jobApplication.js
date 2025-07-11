@@ -23,6 +23,12 @@ const jobApplicationSchema = new mongoose.Schema({
     enum: ['new', 'reviewed', 'interview', 'offer', 'hired', 'rejected'],
     default: 'new'
   },
+  location: {
+    type: String,
+    required: true,
+    enum: ['montreal', 'dubai', 'turkey'],
+    trim: true
+  },
   notes: {
     type: String,
     trim: true

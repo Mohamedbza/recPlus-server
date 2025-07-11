@@ -14,6 +14,7 @@ const jobSchema = new mongoose.Schema({
   location: {
     type: String,
     required: true,
+    enum: ['montreal', 'dubai', 'turkey'],
     trim: true
   },
   isRemote: {

@@ -40,6 +40,12 @@ const projectSchema = new mongoose.Schema({
     type: Number,
     default: 0
   },
+  location: {
+    type: String,
+    required: true,
+    enum: ['montreal', 'dubai', 'turkey'],
+    trim: true
+  },
   
   // Team members - references to User model
   teamMembers: [{

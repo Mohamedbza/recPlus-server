@@ -21,6 +21,15 @@ const getAllCandidates = async (req, res) => {
         { email: { $regex: search, $options: 'i' } },
         { experience: { $regex: search, $options: 'i' } }
       ];
+      
+      // Ensure region filter is applied to search results
+      if (req.userRegion) {
+        query.$and = [
+          { location: req.userRegion },
+          { $or: query.$or }
+        ];
+        delete query.$or;
+      }
     }
     
     // Status filter
@@ -156,7 +165,7 @@ const deleteCandidate = async (req, res) => {
     
     const candidate = await Candidate.findOneAndDelete(query);
     if (!candidate) {
-      return res.status(404).json({ message: 'Candidate not found' });
+      return res.status(404).json({ message: 'Candidate not found in your region' });
     }
     res.json({ message: 'Candidate deleted successfully' });
   } catch (error) {
