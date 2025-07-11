@@ -14,32 +14,11 @@ const jobApplicationsRouter = require('../routes/jobApplications');
 const aiRouter = require('../routes/ai');
 const projectsRouter = require('../routes/projects');
 
-// Import auth middleware
-const auth = require('../middleware/auth');
-
 // Import models
 const { Candidate, Company, Job, Skill, User, JobApplication , Project } = require('../models');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
-
-// Configure CORS
-const corsOptions = {
-  origin: [
-    'http://localhost:3000',           // Local development
-    'http://localhost:3001',           // Local development alternate
-    'https://recplus.vercel.app',      // Production frontend
-    'https://www.recplus.vercel.app',  // Production frontend with www
-    /\.vercel\.app$/,                  // Any vercel.app subdomain
-    'http://localhost:*'               // Any localhost port
-  ],
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
-  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],
-  credentials: true,
-  maxAge: 86400 // 24 hours
-};
-
-app.use(cors(corsOptions));
 
 // Remove duplicate body parser
 app.use(express.json({ 
@@ -56,9 +35,7 @@ app.use(express.json({
     }
   }
 }));
-
-// Add CORS headers for preflight requests
-app.options('*', cors(corsOptions));
+app.use(cors());
 
 // Enhanced debug middleware
 app.use((req, res, next) => {
@@ -73,15 +50,6 @@ app.use((req, res, next) => {
     console.log('🔍 Has password:', 'password' in req.body);
   }
   
-  next();
-});
-
-// Add CORS headers to all responses
-app.use((req, res, next) => {
-  res.header('Access-Control-Allow-Origin', req.headers.origin);
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET,HEAD,PUT,PATCH,POST,DELETE');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
   next();
 });
 
@@ -111,22 +79,15 @@ const regionAccess = (req, res, next) => {
 
 // Routes 
 console.log('🔗 Mounting routes...');
-
-// Protected routes with region access
-app.use('/api/candidates', auth, regionAccess, candidatesRouter);
-app.use('/api/companies', auth, regionAccess, companiesRouter);
-app.use('/api/jobs', auth, regionAccess, jobsRouter);
-app.use('/api/job-applications', auth, regionAccess, jobApplicationsRouter);
-app.use('/api/users', auth, regionAccess, usersRouter);
-
-// Protected routes without region access
-app.use('/api/skills', auth, skillsRouter);
-app.use('/api/projects', auth, projectsRouter);
-
-// Public routes
+app.use('/api/candidates', candidatesRouter);
+app.use('/api/companies', companiesRouter);
+app.use('/api/jobs', jobsRouter);
+app.use('/api/skills', skillsRouter);
+app.use('/api/users', usersRouter);
+app.use('/api/job-applications', jobApplicationsRouter);
 app.use('/api/ai', aiRouter);
-
 console.log('✅ All routes mounted successfully');
+app.use('/api/projects', projectsRouter);
 
 app.get('/', (req, res) => {
   res.send('CRM Server is running!');
