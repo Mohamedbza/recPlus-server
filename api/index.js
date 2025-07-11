@@ -20,15 +20,36 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-app.use(bodyParser.json());
-app.use(express.json());
+// Remove duplicate body parser
+app.use(express.json({ 
+  limit: '10mb',
+  verify: (req, res, buf) => {
+    try {
+      JSON.parse(buf);
+    } catch (e) {
+      res.status(400).json({ 
+        message: 'Invalid JSON in request body',
+        error: e.message 
+      });
+      throw new Error('Invalid JSON');
+    }
+  }
+}));
 app.use(cors());
 
-// Debug middleware to log all requests
+// Enhanced debug middleware
 app.use((req, res, next) => {
-  console.log(`🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
-  console.log('📦 Request body:', req.body);
-  console.log('📋 Request headers:', req.headers);
+  console.log(`\n🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
+  console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
+  console.log('📋 Content-Type:', req.headers['content-type']);
+  console.log('📋 Content-Length:', req.headers['content-length']);
+  
+  // Check if body is parsed correctly
+  if (req.method !== 'GET' && req.headers['content-type']?.includes('application/json')) {
+    console.log('🔍 Body keys:', Object.keys(req.body));
+    console.log('🔍 Has password:', 'password' in req.body);
+  }
+  
   next();
 });
 
@@ -38,6 +59,23 @@ const DB = process.env.MONGODB_URI;
 mongoose.connect(DB)
   .then(() => console.log('MongoDB connection successful'))
   .catch((e) => console.error('MongoDB connection error:', e));
+
+// Region access middleware
+const regionAccess = (req, res, next) => {
+  // Skip region check for super_admin
+  if (req.user && req.user.role === 'super_admin') {
+    return next();
+  }
+
+  // For other roles, ensure they have a region
+  if (!req.user || !req.user.region) {
+    return res.status(403).json({ message: 'Region access denied' });
+  }
+
+  // Add region to request for use in controllers
+  req.userRegion = req.user.region;
+  next();
+};
 
 // Routes 
 console.log('🔗 Mounting routes...');

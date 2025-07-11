@@ -1,34 +1,41 @@
 const JobApplication = require('../models/jobApplication');
+const Job = require('../models/job');
+const Company = require('../models/company');
+const Candidate = require('../models/candidate');
 
 // Get all job applications
 const getAllJobApplications = async (req, res) => {
   try {
-    const { page = 1, limit = 10, status, candidate, job } = req.query;
+    const { page = 1, limit = 10, search, status } = req.query;
     
     let query = {};
+    
+    // For non-super_admin users, first get companies in their region
+    if (req.userRegion) {
+      // Get companies in user's region
+      const companyIds = await Company.find({ location: req.userRegion }).select('_id');
+      
+      // Get jobs from those companies
+      const jobs = await Job.find({ companyId: { $in: companyIds } }).select('_id');
+      
+      // Filter applications for those jobs
+      query.job = { $in: jobs.map(j => j._id) };
+    }
     
     // Status filter
     if (status) {
       query.status = status;
     }
     
-    // Candidate filter
-    if (candidate) {
-      query.candidate = candidate;
-    }
-    
-    // Job filter
-    if (job) {
-      query.job = job;
-    }
-    
-    const jobApplications = await JobApplication.find(query)
-      .populate('candidate', 'firstName lastName email')
+    const applications = await JobApplication.find(query)
       .populate({
         path: 'job',
-        select: 'title companyId',
-        populate: { path: 'companyId', model: 'Company', select: 'name' }
+        populate: {
+          path: 'companyId',
+          select: 'name logo location'
+        }
       })
+      .populate('candidate', 'firstName lastName email location')
       .limit(limit * 1)
       .skip((page - 1) * limit)
       .sort({ createdAt: -1 });
@@ -36,7 +43,7 @@ const getAllJobApplications = async (req, res) => {
     const total = await JobApplication.countDocuments(query);
     
     res.json({
-      jobApplications,
+      applications,
       total,
       page: parseInt(page),
       totalPages: Math.ceil(total / limit)
@@ -49,14 +56,42 @@ const getAllJobApplications = async (req, res) => {
 // Get job application by ID
 const getJobApplicationById = async (req, res) => {
   try {
-    const jobApplication = await JobApplication.findById(req.params.id)
-      .populate('candidate', 'firstName lastName email phone')
-      .populate('job', 'title company description');
+    let query = { _id: req.params.id };
+    
+    // For non-super_admin users, verify application is for job from company in their region
+    if (req.userRegion) {
+      const application = await JobApplication.findById(req.params.id)
+        .populate({
+          path: 'job',
+          populate: {
+            path: 'companyId',
+            select: 'location'
+          }
+        });
       
-    if (!jobApplication) {
-      return res.status(404).json({ message: 'Job application not found' });
+      if (!application) {
+        return res.status(404).json({ message: 'Application not found' });
+      }
+      
+      if (application.job.companyId.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot access application from company outside your region' });
+      }
     }
-    res.json(jobApplication);
+    
+    const application = await JobApplication.findOne(query)
+      .populate({
+        path: 'job',
+        populate: {
+          path: 'companyId',
+          select: 'name logo location'
+        }
+      })
+      .populate('candidate', 'firstName lastName email location');
+    
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    res.json(application);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -65,120 +100,78 @@ const getJobApplicationById = async (req, res) => {
 // Create new job application
 const createJobApplication = async (req, res) => {
   try {
-    /*
-      ------------------------------------------------------------
-      1.  Quick pre–validation
-          ---------------------
-          Before we even talk to MongoDB we make sure that the
-          request body contains the absolutely required fields.
-          If something is missing we short-circuit the request
-          and let the caller know exactly which fields are absent.
-      ------------------------------------------------------------
-    */
-    const requiredFields = ['candidate', 'job']; // keep this list in-sync with the schema!
-    const missingFields  = requiredFields.filter(f => !req.body[f]);
-
-    if (missingFields.length) {
-      return res.status(400).json({
-        type         : 'MissingRequiredFields',
-        message      : 'Some required fields are missing',
-        missingFields
-      });
+    const applicationData = req.body;
+    
+    // For non-super_admin users, verify job is from company in their region
+    if (req.userRegion) {
+      const job = await Job.findById(applicationData.job).populate('companyId', 'location');
+      if (!job || job.companyId.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot create application for job from company outside your region' });
+      }
     }
-
-    /*
-      ------------------------------------------------------------
-      2.  Create & persist the document
-      ------------------------------------------------------------
-    */
-    const jobApplication = await JobApplication.create(req.body);
-
-    /*
-      ------------------------------------------------------------
-      3.  Populate relations so the client receives a fully
-          hydrated document in one round-trip.
-      ------------------------------------------------------------
-    */
-    const populatedJobApplication = await JobApplication.findById(jobApplication._id)
-      .populate('candidate', 'firstName lastName email')
+    
+    const application = new JobApplication(applicationData);
+    const newApplication = await application.save();
+    
+    // Populate response
+    const populatedApplication = await JobApplication.findById(newApplication._id)
       .populate({
-        path   : 'job',
-        select : 'title companyId',
-        populate: { path: 'companyId', model: 'Company', select: 'name' }
-      });
-
-    return res.status(201).json(populatedJobApplication);
+        path: 'job',
+        populate: {
+          path: 'companyId',
+          select: 'name logo location'
+        }
+      })
+      .populate('candidate', 'firstName lastName email location');
+    
+    res.status(201).json(populatedApplication);
   } catch (error) {
-    /*
-      ------------------------------------------------------------
-      4.  Granular error handling
-      ------------------------------------------------------------
-    */
-    if (error.name === 'ValidationError') {
-      // Mongoose validation failed (required, enum, minlength, etc.)
-      const fieldErrors = Object.values(error.errors).map(e => ({
-        field   : e.path,
-        kind    : e.kind,
-        message : e.message
-      }));
-
-      // Extract specifically the "required" violations so the UI
-      // can highlight what is missing.
-      const requiredViolations = fieldErrors
-        .filter(e => e.kind === 'required')
-        .map(e => e.field);
-
-      return res.status(422).json({
-        type          : 'ValidationError',
-        message       : 'Job application validation failed',
-        missingFields : requiredViolations,
-        errors        : fieldErrors
-      });
-    }
-
-    if (error.name === 'CastError') {
-      // Wrong ObjectId format
-      return res.status(400).json({
-        type    : 'CastError',
-        message : `Invalid ${error.path}: ${error.value}`
-      });
-    }
-
-    if (error.code === 11000) {
-      // Duplicate key violation
-      return res.status(409).json({
-        type    : 'DuplicateKeyError',
-        message : 'Duplicate value entered',
-        fields  : error.keyValue
-      });
-    }
-
-    // Unknown / unhandled error
-    return res.status(500).json({
-      type    : 'ServerError',
-      message : error.message || 'Internal server error'
-    });
+    res.status(400).json({ message: error.message });
   }
 };
 
 // Update job application
 const updateJobApplication = async (req, res) => {
   try {
-    const jobApplication = await JobApplication.findByIdAndUpdate(
+    // For non-super_admin users, verify application is for job from company in their region
+    if (req.userRegion) {
+      const application = await JobApplication.findById(req.params.id)
+        .populate({
+          path: 'job',
+          populate: {
+            path: 'companyId',
+            select: 'location'
+          }
+        });
+      
+      if (!application) {
+        return res.status(404).json({ message: 'Application not found' });
+      }
+      
+      if (application.job.companyId.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot update application from company outside your region' });
+      }
+    }
+    
+    const application = await JobApplication.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    ).populate('candidate', 'firstName lastName email')
-     .populate({
-    path: 'job',
-    select: 'title companyId',
-    populate: { path: 'companyId', model: 'Company', select: 'name' }
-  });
-     
-    if (!jobApplication) {
-      return res.status(404).json({ message: 'Job application not found' });
+    )
+    .populate({
+      path: 'job',
+      populate: {
+        path: 'companyId',
+        select: 'name logo location'
+      }
+    })
+    .populate('candidate', 'firstName lastName email location');
+    
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
     }
-    res.json(jobApplication);
+    
+    res.json(application);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -187,87 +180,33 @@ const updateJobApplication = async (req, res) => {
 // Delete job application
 const deleteJobApplication = async (req, res) => {
   try {
-    const jobApplication = await JobApplication.findByIdAndDelete(req.params.id);
-    if (!jobApplication) {
-      return res.status(404).json({ message: 'Job application not found' });
+    // For non-super_admin users, verify application is for job from company in their region
+    if (req.userRegion) {
+      const application = await JobApplication.findById(req.params.id)
+        .populate({
+          path: 'job',
+          populate: {
+            path: 'companyId',
+            select: 'location'
+          }
+        });
+      
+      if (!application) {
+        return res.status(404).json({ message: 'Application not found' });
+      }
+      
+      if (application.job.companyId.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot delete application from company outside your region' });
+      }
     }
-    res.json({ message: 'Job application deleted successfully' });
+    
+    const application = await JobApplication.findByIdAndDelete(req.params.id);
+    if (!application) {
+      return res.status(404).json({ message: 'Application not found' });
+    }
+    res.json({ message: 'Application deleted successfully' });
   } catch (error) {
     res.status(500).json({ message: error.message });
-  }
-};
-
-// Get job applications by candidate
-const getJobApplicationsByCandidate = async (req, res) => {
-  try {
-    const { candidateId } = req.params;
-    const jobApplications = await JobApplication.find({ candidate: candidateId })
-      .populate('job', 'title company location')
-      .sort({ createdAt: -1 });
-    res.json(jobApplications);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get job applications by job
-const getJobApplicationsByJob = async (req, res) => {
-  try {
-    const { jobId } = req.params;
-    const jobApplications = await JobApplication.find({ job: jobId })
-      .populate('candidate', 'firstName lastName email')
-      .sort({ createdAt: -1 });
-    res.json(jobApplications);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Update job application status
-const updateJobApplicationStatus = async (req, res) => {
-  try {
-    const { status } = req.body;
-    const jobApplication = await JobApplication.findByIdAndUpdate(
-      req.params.id,
-      { status },
-      { new: true, runValidators: true }
-    ).populate('candidate', 'firstName lastName email')
-     .populate({
-    path: 'job',
-    select: 'title companyId',
-    populate: { path: 'companyId', model: 'Company', select: 'name' }
-  });
-     
-    if (!jobApplication) {
-      return res.status(404).json({ message: 'Job application not found' });
-    }
-    res.json(jobApplication);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
-// Add feedback to job application
-const addJobApplicationFeedback = async (req, res) => {
-  try {
-    const { feedback } = req.body;
-    const jobApplication = await JobApplication.findByIdAndUpdate(
-      req.params.id,
-      { feedback },
-      { new: true, runValidators: true }
-    ).populate('candidate', 'firstName lastName email')
-     .populate({
-    path: 'job',
-    select: 'title companyId',
-    populate: { path: 'companyId', model: 'Company', select: 'name' }
-  });
-     
-    if (!jobApplication) {
-      return res.status(404).json({ message: 'Job application not found' });
-    }
-    res.json(jobApplication);
-  } catch (error) {
-    res.status(400).json({ message: error.message });
   }
 };
 
@@ -276,9 +215,5 @@ module.exports = {
   getJobApplicationById,
   createJobApplication,
   updateJobApplication,
-  deleteJobApplication,
-  getJobApplicationsByCandidate,
-  getJobApplicationsByJob,
-  updateJobApplicationStatus,
-  addJobApplicationFeedback
+  deleteJobApplication
 }; 

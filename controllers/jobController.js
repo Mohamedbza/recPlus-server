@@ -1,29 +1,26 @@
 const Job = require('../models/job');
+const Company = require('../models/company');
 
 // Get all jobs
 const getAllJobs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, location, type, status, companyId } = req.query;
+    const { page = 1, limit = 10, search, status, jobType, experienceLevel } = req.query;
     
     let query = {};
+    
+    // For non-super_admin users, first get companies in their region
+    if (req.userRegion) {
+      const companyIds = await Company.find({ location: req.userRegion }).select('_id');
+      query.companyId = { $in: companyIds.map(c => c._id) };
+    }
     
     // Search functionality
     if (search) {
       query.$or = [
         { title: { $regex: search, $options: 'i' } },
         { description: { $regex: search, $options: 'i' } },
-        { company: { $regex: search, $options: 'i' } }
+        { department: { $regex: search, $options: 'i' } }
       ];
-    }
-    
-    // Location filter
-    if (location) {
-      query.location = { $regex: location, $options: 'i' };
-    }
-    
-    // Type filter
-    if (type) {
-      query.jobeType = type;
     }
     
     // Status filter
@@ -31,16 +28,21 @@ const getAllJobs = async (req, res) => {
       query.status = status;
     }
     
-    // Company filter
-    if (companyId) {
-      query.companyId = companyId;
+    // Job type filter
+    if (jobType) {
+      query.jobType = jobType;
+    }
+    
+    // Experience level filter
+    if (experienceLevel) {
+      query.experienceLevel = experienceLevel;
     }
     
     const jobs = await Job.find(query)
-  .populate('companyId', 'name')
-  .limit(limit * 1)
-  .skip((page - 1) * limit)
-  .sort({ createdAt: -1 });
+      .populate('companyId', 'name logo location')
+      .limit(limit * 1)
+      .skip((page - 1) * limit)
+      .sort({ createdAt: -1 });
     
     const total = await Job.countDocuments(query);
     
@@ -58,7 +60,15 @@ const getAllJobs = async (req, res) => {
 // Get job by ID
 const getJobById = async (req, res) => {
   try {
-    const job = await Job.findById(req.params.id).populate('companyId', 'name');
+    let query = { _id: req.params.id };
+    
+    // For non-super_admin users, first get companies in their region
+    if (req.userRegion) {
+      const companyIds = await Company.find({ location: req.userRegion }).select('_id');
+      query.companyId = { $in: companyIds.map(c => c._id) };
+    }
+    
+    const job = await Job.findOne(query).populate('companyId', 'name logo location');
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
@@ -71,9 +81,23 @@ const getJobById = async (req, res) => {
 // Create new job
 const createJob = async (req, res) => {
   try {
-    const job = new Job(req.body);
+    const jobData = req.body;
+    
+    // For non-super_admin users, verify company is in their region
+    if (req.userRegion) {
+      const company = await Company.findById(jobData.companyId);
+      if (!company || company.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot create job for company outside your region' });
+      }
+    }
+    
+    const job = new Job(jobData);
     const newJob = await job.save();
-    res.status(201).json(newJob);
+    
+    // Populate company details in response
+    const populatedJob = await Job.findById(newJob._id).populate('companyId', 'name logo location');
+    
+    res.status(201).json(populatedJob);
   } catch (error) {
     res.status(400).json({ message: error.message });
   }
@@ -82,14 +106,27 @@ const createJob = async (req, res) => {
 // Update job
 const updateJob = async (req, res) => {
   try {
+    // For non-super_admin users, verify job belongs to company in their region
+    if (req.userRegion) {
+      const job = await Job.findById(req.params.id).populate('companyId', 'location');
+      if (!job) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+      if (job.companyId.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot update job from company outside your region' });
+      }
+    }
+    
     const job = await Job.findByIdAndUpdate(
       req.params.id,
       req.body,
       { new: true, runValidators: true }
-    );
+    ).populate('companyId', 'name logo location');
+    
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
     }
+    
     res.json(job);
   } catch (error) {
     res.status(400).json({ message: error.message });
@@ -99,6 +136,17 @@ const updateJob = async (req, res) => {
 // Delete job
 const deleteJob = async (req, res) => {
   try {
+    // For non-super_admin users, verify job belongs to company in their region
+    if (req.userRegion) {
+      const job = await Job.findById(req.params.id).populate('companyId', 'location');
+      if (!job) {
+        return res.status(404).json({ message: 'Job not found' });
+      }
+      if (job.companyId.location !== req.userRegion) {
+        return res.status(403).json({ message: 'Cannot delete job from company outside your region' });
+      }
+    }
+    
     const job = await Job.findByIdAndDelete(req.params.id);
     if (!job) {
       return res.status(404).json({ message: 'Job not found' });
@@ -109,44 +157,10 @@ const deleteJob = async (req, res) => {
   }
 };
 
-// Get jobs by company
-const getJobsByCompany = async (req, res) => {
-  try {
-    const { companyId } = req.params;
-    const jobs = await Job.find({ companyId }).populate('companyId', 'name');
-    res.json(jobs);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get remote jobs
-const getRemoteJobs = async (req, res) => {
-  try {
-    const jobs = await Job.find({ isRemote: true, status: 'active' }).populate('companyId', 'name');
-    res.json(jobs);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get featured jobs
-const getFeaturedJobs = async (req, res) => {
-  try {
-    const jobs = await Job.find({ isFeatured: true, status: 'active' }).populate('companyId', 'name');
-    res.json(jobs);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
 module.exports = {
   getAllJobs,
   getJobById,
   createJob,
   updateJob,
-  deleteJob,
-  getJobsByCompany,
-  getRemoteJobs,
-  getFeaturedJobs
+  deleteJob
 }; 

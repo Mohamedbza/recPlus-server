@@ -8,12 +8,17 @@ const getAllCompanies = async (req, res) => {
     
     let query = {};
     
+    // Add region filter for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
     // Search functionality
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
         { industry: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { email: { $regex: search, $options: 'i' } }
       ];
     }
     
@@ -48,7 +53,14 @@ const getAllCompanies = async (req, res) => {
 // Get company by ID
 const getCompanyById = async (req, res) => {
   try {
-    const company = await Company.findById(req.params.id);
+    const query = { _id: req.params.id };
+    
+    // Add region check for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const company = await Company.findOne(query);
     if (!company) {
       return res.status(404).json({ message: 'Company not found' });
     }
@@ -63,69 +75,29 @@ const createCompany = async (req, res) => {
   try {
     const { password, ...companyData } = req.body;
     
-    // Validate password
-    if (!password) {
-      console.error('Password is missing in request body');
-      return res.status(400).json({ 
-        message: 'Password is required',
-        code: 'MISSING_PASSWORD'
-      });
-    }
-
-    if (typeof password !== 'string') {
-      console.error('Password must be a string, received:', typeof password);
-      return res.status(400).json({ 
-        message: 'Password must be a string',
-        code: 'INVALID_PASSWORD_TYPE'
-      });
-    }
-
-    if (password.length < 6) {
-      console.error('Password is too short:', password.length);
-      return res.status(400).json({ 
-        message: 'Password must be at least 6 characters long',
-        code: 'PASSWORD_TOO_SHORT'
-      });
+    // Force location to user's region for non-super_admin users
+    if (req.userRegion) {
+      companyData.location = req.userRegion;
     }
     
-    console.log('Attempting to hash password...');
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
     
-    try {
-      // Hash password
-      const salt = await bcrypt.genSalt(10);
-      const hashedPassword = await bcrypt.hash(password, salt);
-      
-      console.log('Password hashed successfully');
-
-      const company = new Company({
-        ...companyData,
-        password: hashedPassword
-      });
-      
-      console.log('Attempting to save company...');
-      const newCompany = await company.save();
-      console.log('Company saved successfully with ID:', newCompany._id);
-      
-      // Remove password from response
-      const companyResponse = newCompany.toObject();
-      delete companyResponse.password;
-      
-      res.status(201).json(companyResponse);
-    } catch (hashError) {
-      console.error('Error during password hashing:', hashError);
-      return res.status(500).json({ 
-        message: 'Error processing password',
-        code: 'PASSWORD_PROCESSING_ERROR',
-        details: hashError.message
-      });
-    }
-  } catch (error) {
-    console.error('Error creating company:', error);
-    res.status(400).json({ 
-      message: error.message,
-      code: 'COMPANY_CREATION_ERROR',
-      details: error.message
+    const company = new Company({
+      ...companyData,
+      password: hashedPassword
     });
+    
+    const newCompany = await company.save();
+    
+    // Remove password from response
+    const companyResponse = newCompany.toObject();
+    delete companyResponse.password;
+    
+    res.status(201).json(companyResponse);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
   }
 };
 
@@ -133,6 +105,21 @@ const createCompany = async (req, res) => {
 const updateCompany = async (req, res) => {
   try {
     const { password, ...updateData } = req.body;
+    
+    // For non-super_admin users, ensure company exists in their region
+    if (req.userRegion) {
+      const existingCompany = await Company.findOne({
+        _id: req.params.id,
+        location: req.userRegion
+      });
+      
+      if (!existingCompany) {
+        return res.status(404).json({ message: 'Company not found in your region' });
+      }
+      
+      // Force location to user's region
+      updateData.location = req.userRegion;
+    }
     
     // If password is provided, hash it
     if (password) {
@@ -164,34 +151,18 @@ const updateCompany = async (req, res) => {
 // Delete company
 const deleteCompany = async (req, res) => {
   try {
-    const company = await Company.findByIdAndDelete(req.params.id);
+    const query = { _id: req.params.id };
+    
+    // Add region check for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const company = await Company.findOneAndDelete(query);
     if (!company) {
       return res.status(404).json({ message: 'Company not found' });
     }
     res.json({ message: 'Company deleted successfully' });
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get companies by industry
-const getCompaniesByIndustry = async (req, res) => {
-  try {
-    const { industry } = req.params;
-    const companies = await Company.find({
-      industry: { $regex: industry, $options: 'i' }
-    });
-    res.json(companies);
-  } catch (error) {
-    res.status(500).json({ message: error.message });
-  }
-};
-
-// Get verified companies
-const getVerifiedCompanies = async (req, res) => {
-  try {
-    const companies = await Company.find({ isVerified: true });
-    res.json(companies);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
@@ -202,7 +173,5 @@ module.exports = {
   getCompanyById,
   createCompany,
   updateCompany,
-  deleteCompany,
-  getCompaniesByIndustry,
-  getVerifiedCompanies
+  deleteCompany
 }; 

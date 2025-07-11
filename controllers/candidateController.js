@@ -8,6 +8,11 @@ const getAllCandidates = async (req, res) => {
     
     let query = {};
     
+    // Add region filter for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
     // Search functionality
     if (search) {
       query.$or = [
@@ -44,7 +49,14 @@ const getAllCandidates = async (req, res) => {
 // Get candidate by ID
 const getCandidateById = async (req, res) => {
   try {
-    const candidate = await Candidate.findById(req.params.id);
+    const query = { _id: req.params.id };
+    
+    // Add region check for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const candidate = await Candidate.findOne(query);
     if (!candidate) {
       return res.status(404).json({ message: 'Candidate not found' });
     }
@@ -58,6 +70,11 @@ const getCandidateById = async (req, res) => {
 const createCandidate = async (req, res) => {
   try {
     const { password, ...candidateData } = req.body;
+    
+    // Force location to user's region for non-super_admin users
+    if (req.userRegion) {
+      candidateData.location = req.userRegion;
+    }
     
     // Hash password
     const salt = await bcrypt.genSalt(10);
@@ -84,6 +101,21 @@ const createCandidate = async (req, res) => {
 const updateCandidate = async (req, res) => {
   try {
     const { password, ...updateData } = req.body;
+    
+    // For non-super_admin users, ensure candidate exists in their region
+    if (req.userRegion) {
+      const existingCandidate = await Candidate.findOne({
+        _id: req.params.id,
+        location: req.userRegion
+      });
+      
+      if (!existingCandidate) {
+        return res.status(404).json({ message: 'Candidate not found in your region' });
+      }
+      
+      // Force location to user's region
+      updateData.location = req.userRegion;
+    }
     
     // If password is provided, hash it
     if (password) {
@@ -115,7 +147,14 @@ const updateCandidate = async (req, res) => {
 // Delete candidate
 const deleteCandidate = async (req, res) => {
   try {
-    const candidate = await Candidate.findByIdAndDelete(req.params.id);
+    const query = { _id: req.params.id };
+    
+    // Add region check for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const candidate = await Candidate.findOneAndDelete(query);
     if (!candidate) {
       return res.status(404).json({ message: 'Candidate not found' });
     }
@@ -129,9 +168,16 @@ const deleteCandidate = async (req, res) => {
 const getCandidatesBySkill = async (req, res) => {
   try {
     const { skill } = req.params;
-    const candidates = await Candidate.find({
+    const query = {
       skills: { $regex: skill, $options: 'i' }
-    });
+    };
+    
+    // Add region filter for non-super_admin users
+    if (req.userRegion) {
+      query.location = req.userRegion;
+    }
+    
+    const candidates = await Candidate.find(query);
     res.json(candidates);
   } catch (error) {
     res.status(500).json({ message: error.message });
