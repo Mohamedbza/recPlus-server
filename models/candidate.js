@@ -28,8 +28,10 @@ const candidateSchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  address: {
+  location: {
     type: String,
+    required: true,
+    enum: ['montreal', 'dubai', 'turkey'],
     trim: true
   },
   dateOfBirth: Date,

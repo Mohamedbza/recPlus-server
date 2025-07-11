@@ -28,17 +28,10 @@ const companySchema = new mongoose.Schema({
     required: true,
     trim: true
   },
-  address: {
+  location: {
     type: String,
     required: true,
-    trim: true
-  },
-  city: {
-    type: String,
-    trim: true
-  },
-  country: {
-    type: String,
+    enum: ['montreal', 'dubai', 'turkey'],
     trim: true
   },
   website: {
