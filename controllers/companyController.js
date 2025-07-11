@@ -63,24 +63,69 @@ const createCompany = async (req, res) => {
   try {
     const { password, ...companyData } = req.body;
     
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    // Validate password
+    if (!password) {
+      console.error('Password is missing in request body');
+      return res.status(400).json({ 
+        message: 'Password is required',
+        code: 'MISSING_PASSWORD'
+      });
+    }
+
+    if (typeof password !== 'string') {
+      console.error('Password must be a string, received:', typeof password);
+      return res.status(400).json({ 
+        message: 'Password must be a string',
+        code: 'INVALID_PASSWORD_TYPE'
+      });
+    }
+
+    if (password.length < 6) {
+      console.error('Password is too short:', password.length);
+      return res.status(400).json({ 
+        message: 'Password must be at least 6 characters long',
+        code: 'PASSWORD_TOO_SHORT'
+      });
+    }
     
-    const company = new Company({
-      ...companyData,
-      password: hashedPassword
-    });
+    console.log('Attempting to hash password...');
     
-    const newCompany = await company.save();
-    
-    // Remove password from response
-    const companyResponse = newCompany.toObject();
-    delete companyResponse.password;
-    
-    res.status(201).json(companyResponse);
+    try {
+      // Hash password
+      const salt = await bcrypt.genSalt(10);
+      const hashedPassword = await bcrypt.hash(password, salt);
+      
+      console.log('Password hashed successfully');
+
+      const company = new Company({
+        ...companyData,
+        password: hashedPassword
+      });
+      
+      console.log('Attempting to save company...');
+      const newCompany = await company.save();
+      console.log('Company saved successfully with ID:', newCompany._id);
+      
+      // Remove password from response
+      const companyResponse = newCompany.toObject();
+      delete companyResponse.password;
+      
+      res.status(201).json(companyResponse);
+    } catch (hashError) {
+      console.error('Error during password hashing:', hashError);
+      return res.status(500).json({ 
+        message: 'Error processing password',
+        code: 'PASSWORD_PROCESSING_ERROR',
+        details: hashError.message
+      });
+    }
   } catch (error) {
-    res.status(400).json({ message: error.message });
+    console.error('Error creating company:', error);
+    res.status(400).json({ 
+      message: error.message,
+      code: 'COMPANY_CREATION_ERROR',
+      details: error.message
+    });
   }
 };
 
