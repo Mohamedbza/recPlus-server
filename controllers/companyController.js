@@ -1,6 +1,38 @@
 const Company = require('../models/company');
 const bcrypt = require('bcryptjs');
 
+// Public registration endpoint for companies
+const registerCompany = async (req, res) => {
+  try {
+    const { password, ...companyData } = req.body;
+    
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const company = new Company({
+      ...companyData,
+      password: hashedPassword
+    });
+    
+    const newCompany = await company.save();
+    
+    // Remove password from response
+    const companyResponse = newCompany.toObject();
+    delete companyResponse.password;
+    
+    res.status(201).json({
+      success: true,
+      data: companyResponse
+    });
+  } catch (error) {
+    res.status(400).json({ 
+      success: false,
+      error: error.message 
+    });
+  }
+};
+
 // Get all companies
 const getAllCompanies = async (req, res) => {
   try {
@@ -182,5 +214,6 @@ module.exports = {
   getCompanyById,
   createCompany,
   updateCompany,
-  deleteCompany
+  deleteCompany,
+  registerCompany
 }; 
