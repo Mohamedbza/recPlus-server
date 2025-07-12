@@ -1,7 +1,6 @@
 require('dotenv').config({ path: __dirname + '/../.env' });
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
 const cors = require('cors');
 
 // Import routes
@@ -23,6 +22,14 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// CORS configuration - Allow all origins for localhost development
+app.use(cors({
+  origin: true, // Allow all origins
+  credentials: true, // Allow credentials
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With']
+}));
 
 // Remove duplicate body parser
 app.use(express.json({ 
@@ -66,7 +73,12 @@ mongoose.connect(DB)
 
 // Routes with region access middleware
 console.log('🔗 Mounting routes...');
-// First verify token, then check region access
+
+// Public registration routes (no authentication required)
+app.use('/api/candidates/register', candidatesRouter);
+app.use('/api/companies/register', companiesRouter);
+
+// Protected routes with authentication and region access
 app.use('/api/candidates', verifyToken, regionAccessMiddleware, candidatesRouter);
 app.use('/api/companies', verifyToken, regionAccessMiddleware, companiesRouter);
 app.use('/api/jobs', verifyToken, regionAccessMiddleware, jobsRouter);
