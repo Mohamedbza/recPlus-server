@@ -28,6 +28,7 @@ const PORT = process.env.PORT || 3000;
 const corsOptions = {
   origin: [
     'https://rec-website-gules.vercel.app',
+    'https://recplus.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://127.0.0.1:3000',
