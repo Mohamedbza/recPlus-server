@@ -1,38 +1,6 @@
 const Candidate = require('../models/candidate');
 const bcrypt = require('bcryptjs');
 
-// Public registration endpoint for candidates
-const registerCandidate = async (req, res) => {
-  try {
-    const { password, ...candidateData } = req.body;
-    
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
-    
-    const candidate = new Candidate({
-      ...candidateData,
-      password: hashedPassword
-    });
-    
-    const newCandidate = await candidate.save();
-    
-    // Remove password from response
-    const candidateResponse = newCandidate.toObject();
-    delete candidateResponse.password;
-    
-    res.status(201).json({
-      success: true,
-      data: candidateResponse
-    });
-  } catch (error) {
-    res.status(400).json({ 
-      success: false,
-      error: error.message 
-    });
-  }
-};
-
 // Get all candidates
 const getAllCandidates = async (req, res) => {
   try {
@@ -225,12 +193,38 @@ const getCandidatesBySkill = async (req, res) => {
   }
 };
 
+// Public registration for candidates (no region filtering)
+const registerCandidate = async (req, res) => {
+  try {
+    const { password, ...candidateData } = req.body;
+    
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+    
+    const candidate = new Candidate({
+      ...candidateData,
+      password: hashedPassword
+    });
+    
+    const newCandidate = await candidate.save();
+    
+    // Remove password from response
+    const candidateResponse = newCandidate.toObject();
+    delete candidateResponse.password;
+    
+    res.status(201).json(candidateResponse);
+  } catch (error) {
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllCandidates,
   getCandidateById,
   createCandidate,
+  registerCandidate,
   updateCandidate,
   deleteCandidate,
-  getCandidatesBySkill,
-  registerCandidate
+  getCandidatesBySkill
 }; 

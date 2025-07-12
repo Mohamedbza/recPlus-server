@@ -1,16 +1,30 @@
 const express = require('express');
 const router = express.Router();
-const companyController = require('../controllers/companyController');
-const { checkRegionAccess } = require('../middleware/regionAccess');
+const {
+  getAllCompanies,
+  getCompanyById,
+  createCompany,
+  registerCompany,
+  updateCompany,
+  deleteCompany
+} = require('../controllers/companyController');
 
-// Public registration route (no middleware)
-router.post('/register', companyController.registerCompany);
+// GET all companies
+router.get('/', getAllCompanies);
 
-// Protected routes with region access check
-router.get('/', checkRegionAccess, companyController.getAllCompanies);
-router.get('/:id', checkRegionAccess, companyController.getCompanyById);
-router.post('/', checkRegionAccess, companyController.createCompany);
-router.put('/:id', checkRegionAccess, companyController.updateCompany);
-router.delete('/:id', checkRegionAccess, companyController.deleteCompany);
+// GET company by ID
+router.get('/:id', getCompanyById);
+
+// POST create new company (with region filtering)
+router.post('/', createCompany);
+
+// POST public registration (no region filtering)
+router.post('/register', registerCompany);
+
+// PUT update company
+router.put('/:id', updateCompany);
+
+// DELETE company
+router.delete('/:id', deleteCompany);
 
 module.exports = router; 

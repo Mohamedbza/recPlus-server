@@ -1,17 +1,34 @@
 const express = require('express');
 const router = express.Router();
-const candidateController = require('../controllers/candidateController');
-const { checkRegionAccess } = require('../middleware/regionAccess');
+const {
+  getAllCandidates,
+  getCandidateById,
+  createCandidate,
+  registerCandidate,
+  updateCandidate,
+  deleteCandidate,
+  getCandidatesBySkill
+} = require('../controllers/candidateController');
 
-// Public registration route (no middleware)
-router.post('/register', candidateController.registerCandidate);
+// GET all candidates
+router.get('/', getAllCandidates);
 
-// Protected routes with region access check
-router.get('/', checkRegionAccess, candidateController.getAllCandidates);
-router.get('/:id', checkRegionAccess, candidateController.getCandidateById);
-router.post('/', checkRegionAccess, candidateController.createCandidate);
-router.put('/:id', checkRegionAccess, candidateController.updateCandidate);
-router.delete('/:id', checkRegionAccess, candidateController.deleteCandidate);
-router.get('/skills/:skill', checkRegionAccess, candidateController.getCandidatesBySkill);
+// GET candidate by ID
+router.get('/:id', getCandidateById);
+
+// POST create new candidate (with region filtering)
+router.post('/', createCandidate);
+
+// POST public registration (no region filtering)
+router.post('/register', registerCandidate);
+
+// PUT update candidate
+router.put('/:id', updateCandidate);
+
+// DELETE candidate
+router.delete('/:id', deleteCandidate);
+
+// GET candidates by skill
+router.get('/skill/:skill', getCandidatesBySkill);
 
 module.exports = router; 
