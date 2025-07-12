@@ -38,8 +38,7 @@ app.use(express.json({
       throw new Error('Invalid JSON');
     }
   }
-}));
-app.use(cors());
+})); 
 
 // Enhanced debug middleware
 app.use((req, res, next) => {
