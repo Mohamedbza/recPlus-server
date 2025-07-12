@@ -22,12 +22,10 @@ const projectSchema = new mongoose.Schema({
     default: 'medium'
   },
   startDate: {
-    type: Date,
-    required: true
+    type: Date
   },
   endDate: {
-    type: Date,
-    required: true
+    type: Date
   },
   actualEndDate: {
     type: Date
@@ -42,7 +40,6 @@ const projectSchema = new mongoose.Schema({
   },
   location: {
     type: String,
-    required: true,
     enum: ['montreal', 'dubai', 'turkey'],
     trim: true
   },
