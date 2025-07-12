@@ -24,6 +24,35 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// CORS configuration
+const corsOptions = {
+  origin: [
+    'https://rec-website-gules.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://127.0.0.1:3000',
+    'http://127.0.0.1:3001'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Content-Type', 
+    'Authorization', 
+    'X-Requested-With', 
+    'Accept', 
+    'Origin',
+    'Access-Control-Allow-Headers',
+    'Access-Control-Request-Method',
+    'Access-Control-Request-Headers'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
+
 // Remove duplicate body parser
 app.use(express.json({ 
   limit: '10mb',
@@ -47,6 +76,8 @@ app.use((req, res, next) => {
   console.log('📋 Content-Type:', req.headers['content-type']);
   console.log('📋 Content-Length:', req.headers['content-length']);
   console.log('🔑 Authorization:', req.headers['authorization'] ? 'Present' : 'Missing');
+  console.log('🌍 Origin:', req.headers['origin']);
+  console.log('🌍 Referer:', req.headers['referer']);
   
   // Check if body is parsed correctly
   if (req.method !== 'GET' && req.headers['content-type']?.includes('application/json')) {
@@ -66,7 +97,21 @@ mongoose.connect(DB)
 
 // Routes with region access middleware
 console.log('🔗 Mounting routes...');
-// First verify token, then check region access
+
+// Public registration routes (no authentication required)
+app.post('/api/candidates/register', (req, res, next) => {
+  // Import the registerCandidate function directly
+  const { registerCandidate } = require('../controllers/candidateController');
+  registerCandidate(req, res, next);
+});
+
+app.post('/api/companies/register', (req, res, next) => {
+  // Import the registerCompany function directly
+  const { registerCompany } = require('../controllers/companyController');
+  registerCompany(req, res, next);
+});
+
+// Protected routes with authentication and region access
 app.use('/api/candidates', verifyToken, regionAccessMiddleware, candidatesRouter);
 app.use('/api/companies', verifyToken, regionAccessMiddleware, companiesRouter);
 app.use('/api/jobs', verifyToken, regionAccessMiddleware, jobsRouter);
@@ -125,6 +170,22 @@ app.get('/api/test', (req, res) => {
   });
 });
 
+// Add CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  console.log('✅ CORS TEST: /api/cors-test endpoint hit');
+  console.log('🌍 Origin:', req.headers['origin']);
+  console.log('🌍 Referer:', req.headers['referer']);
+  
+  res.json({ 
+    success: true, 
+    message: 'CORS test successful',
+    timestamp: new Date().toISOString(),
+    origin: req.headers['origin'],
+    referer: req.headers['referer'],
+    corsEnabled: true
+  });
+});
+
 // Add 404 handler for debugging
 app.use('/api/*', (req, res) => {
   console.log('🔍 DEBUG: Unmatched API route accessed:');
@@ -139,6 +200,9 @@ app.use('/api/*', (req, res) => {
     message: `Route not found: ${req.method} ${req.originalUrl}`,
     availableRoutes: [
       'GET /api/test',
+      'GET /api/cors-test',
+      'POST /api/candidates/register',
+      'POST /api/companies/register',
       'POST /api/ai/generate-email',
       'POST /api/ai/analyze-cv',
       'GET /debug/routes'
