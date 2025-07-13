@@ -43,7 +43,9 @@ const corsOptions = {
     'Accept',
     'Authorization',
     'X-Auth-Token',
-    'Cache-Control'
+    'Cache-Control',
+    'Content-Length',
+    'Content-Disposition'
   ],
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
@@ -57,6 +59,11 @@ app.options('*', cors(corsOptions));
 app.use(express.json({ 
   limit: '10mb',
   verify: (req, res, buf) => {
+    // Skip verification for multipart/form-data
+    if (req.headers['content-type']?.includes('multipart/form-data')) {
+      return;
+    }
+    
     try {
       JSON.parse(buf);
     } catch (e) {
@@ -67,7 +74,13 @@ app.use(express.json({
       throw new Error('Invalid JSON');
     }
   }
-})); 
+}));
+
+// Add URL-encoded parser for form data
+app.use(express.urlencoded({ 
+  extended: true, 
+  limit: '10mb' 
+}));
 
 // Enhanced debug middleware
 app.use((req, res, next) => {
@@ -83,12 +96,17 @@ app.use((req, res, next) => {
   res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, Cache-Control');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, Cache-Control, Content-Length, Content-Disposition');
   
-  // Check if body is parsed correctly
+  // Check if body is parsed correctly (skip for multipart/form-data)
   if (req.method !== 'GET' && req.headers['content-type']?.includes('application/json')) {
     console.log('🔍 Body keys:', Object.keys(req.body));
     console.log('🔍 Has password:', 'password' in req.body);
+  }
+  
+  // Handle multipart/form-data requests
+  if (req.headers['content-type']?.includes('multipart/form-data')) {
+    console.log('📁 Multipart form data detected');
   }
   
   next();
