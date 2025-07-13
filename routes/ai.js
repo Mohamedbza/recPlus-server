@@ -3,7 +3,40 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const cors = require('cors');
 const { generateEmail, analyzeCv, generateJobDescription } = require('../controllers/aiController');
+
+// CORS configuration for AI routes (specifically for file uploads)
+const aiCorsOptions = {
+  origin: [
+    'https://rec-website-gules.vercel.app',
+    'https://recplus.vercel.app',
+    'https://rec-plus-server.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://localhost:4173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-Auth-Token',
+    'Cache-Control',
+    'Content-Length',
+    'Content-Disposition'
+  ]
+};
+
+// Apply CORS to AI routes
+router.use(cors(aiCorsOptions));
+
+// Handle preflight requests for AI routes
+router.options('*', cors(aiCorsOptions));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
