@@ -210,13 +210,25 @@ const extractTextFromFile = async (file) => {
 
 // Direct CV Analysis Route
 app.options('/api/ai/analyze-cv-direct', (req, res) => {
+  console.log('🔍 OPTIONS request received for CV analysis');
+  console.log('🌍 Origin:', req.headers.origin);
+  console.log('📋 Content-Type:', req.headers['content-type']);
+  console.log('📋 User-Agent:', req.headers['user-agent']);
+  
   res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept');
   res.setHeader('Access-Control-Allow-Credentials', 'true');
+  res.setHeader('Access-Control-Max-Age', '86400'); // 24 hours
   return res.status(200).end();
 });
 app.post('/api/ai/analyze-cv-direct', upload.single('file'), async (req, res) => {
+  console.log('📤 POST request received for CV analysis');
+  console.log('🌍 Origin:', req.headers.origin);
+  console.log('📋 Content-Type:', req.headers['content-type']);
+  console.log('📁 File uploaded:', req.file ? req.file.originalname : 'No file');
+  console.log('📝 Text provided:', req.body.cvText ? 'Yes' : 'No');
+  
   try {
     let cvText = req.body.cvText;
     
@@ -563,7 +575,17 @@ app.use('/api/*', (req, res) => {
     ]
   });
 });
- 
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🌍 CORS enabled for origins: https://rec-website-gules.vercel.app, https://recplus.vercel.app, localhost:3000, localhost:3001, localhost:5173, localhost:4173`);
+  console.log(`📊 Debug routes available at: http://localhost:${PORT}/debug/routes`);
+  console.log(`🧪 Test endpoint available at: http://localhost:${PORT}/api/test`);
+  console.log(`🌍 CORS test endpoint available at: http://localhost:${PORT}/api/cors-test`);
+  console.log(`📧 Email generation endpoint should be at: http://localhost:${PORT}/api/ai/generate-email`);
+  console.log(`📄 CV Analysis direct endpoint: http://localhost:${PORT}/api/ai/analyze-cv-direct`);
+});
+
 // Export models
 module.exports = app;
 module.exports.Candidate = Candidate;
