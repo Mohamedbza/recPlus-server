@@ -27,7 +27,25 @@ const PORT = process.env.PORT || 3000;
 // CORS configuration - Allow all origins for development/testing
 const corsOptions = {
   origin: function (origin, callback) {
-    callback(null, true); // Allow all origins
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    
+    const allowedOrigins = [
+      'https://rec-website-gules.vercel.app',
+      'https://recplus.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:3001',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:3001',
+      'https://srv884531.hstgr.cloud' // Add your server domain
+    ];
+    
+    if (allowedOrigins.includes(origin) || allowedOrigins.includes('*')) {
+      callback(null, true);
+    } else {
+      // For development, allow all origins
+      callback(null, true);
+    }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -48,22 +66,6 @@ const corsOptions = {
 
 app.use(cors(corsOptions));
 
-// Handle preflight requests explicitly
-app.options('*', (req, res) => {
-  console.log('🔄 CORS Preflight Request:', req.method, req.originalUrl);
-  console.log('🌍 Origin:', req.headers['origin']);
-  console.log('🌍 Access-Control-Request-Method:', req.headers['access-control-request-method']);
-  console.log('🌍 Access-Control-Request-Headers:', req.headers['access-control-request-headers']);
-  
-  // Set CORS headers for preflight
-  res.header('Access-Control-Allow-Origin', req.headers['origin'] || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  res.status(204).end();
-});
-
 // Remove duplicate body parser
 app.use(express.json({ 
   limit: '10mb',
@@ -80,14 +82,8 @@ app.use(express.json({
   }
 })); 
 
-// Enhanced debug middleware with CORS headers
+// Enhanced debug middleware WITHOUT CORS headers (to avoid conflicts)
 app.use((req, res, next) => {
-  // Add CORS headers to all responses
-  res.header('Access-Control-Allow-Origin', req.headers['origin'] || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
   console.log(`\n🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
   console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
   console.log('📋 Content-Type:', req.headers['content-type']);
@@ -193,30 +189,6 @@ app.get('/api/cors-test', (req, res) => {
   console.log('🌍 Origin:', req.headers['origin']);
   console.log('🌍 Referer:', req.headers['referer']);
   
-  // Explicitly set CORS headers for this test endpoint
-  const origin = req.headers['origin'];
-  if (origin) {
-    const allowedOrigins = [
-      'https://rec-website-gules.vercel.app',
-      'https://recplus.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ];
-    
-    if (allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      // For development, allow all origins
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
   res.json({ 
     success: true, 
     message: 'CORS test successful',
@@ -230,7 +202,8 @@ app.get('/api/cors-test', (req, res) => {
       'http://localhost:3000',
       'http://localhost:3001',
       'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
+      'http://127.0.0.1:3001',
+      'https://srv884531.hstgr.cloud'
     ]
   });
 });
