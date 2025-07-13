@@ -50,16 +50,9 @@ const corsOptions = {
   exposedHeaders: ['Content-Range', 'X-Content-Range']
 };
 
-app.use((req, res, next) => {
-  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.setHeader('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization');
-  res.setHeader('Access-Control-Allow-Credentials', 'true');
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end(); // Preflight request
-  }
-  next();
-});
+// Apply CORS middleware properly
+app.use(cors(corsOptions));
+
 // Handle preflight requests
 app.options('*', cors(corsOptions));
 
@@ -100,11 +93,7 @@ app.use((req, res, next) => {
   console.log('🌍 Origin:', req.headers['origin']);
   console.log('🌍 Referer:', req.headers['referer']);
   
-  // Add CORS headers for debugging
-  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, Cache-Control, Content-Length, Content-Disposition');
+  // CORS is now handled by the cors middleware above
   
   // Check if body is parsed correctly (skip for multipart/form-data)
   if (req.method !== 'GET' && req.headers['content-type']?.includes('application/json')) {
