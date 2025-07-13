@@ -38,7 +38,7 @@
 - ✅ **express** ^4.19.2
 - ✅ **mongoose** ^8.6.0
 - ✅ **dotenv** ^16.4.7
-- ✅ **cors** (installed)
+- ❌ **cors** (removed - no longer needed)
 - ✅ **bcryptjs** ^2.4.3
 - ✅ **jsonwebtoken** ^9.0.2
 - ✅ **joi** ^17.13.1

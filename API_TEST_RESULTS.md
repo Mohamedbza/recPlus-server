@@ -65,7 +65,7 @@
 4. **Regional user filtering**
 5. **POST user creation**
 6. **No authentication required** (all endpoints are public)
-7. **CORS enabled** for cross-origin requests
+7. **CORS removed** - no longer configured in backend
 
 ### ⚠️ **Current Status**
 1. **Authentication endpoints missing** (`/auth/login`, `/auth/register`)

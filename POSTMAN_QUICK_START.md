@@ -199,7 +199,7 @@ npm run seed
 
 ### Issue 4: CORS Errors
 **Error**: CORS policy blocks request
-**Solution**: Ensure CORS is enabled in your backend (should be by default)
+**Solution**: CORS has been removed from this backend. If you need CORS, you'll need to configure it in your frontend or proxy.
 
 ### Issue 5: Invalid ObjectId
 **Error**: Cast to ObjectId failed

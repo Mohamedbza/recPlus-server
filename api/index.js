@@ -2,8 +2,6 @@ require('dotenv').config({ path: __dirname + '/../.env' });
 const express = require('express');
 const mongoose = require('mongoose');
 
-const cors = require('cors');
-
 // Import routes
 const candidatesRouter = require('../routes/candidates');
 const companiesRouter = require('../routes/companies');
@@ -24,63 +22,6 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS configuration - Allow all origins for development/testing
-const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'https://rec-website-gules.vercel.app',
-      'https://recplus.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ];
-    
-    if (allowedOrigins.includes(origin)) {
-      callback(null, true);
-    } else {
-      // For development, allow all origins
-      callback(null, true);
-    }
-  },
-  credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
-  allowedHeaders: [
-    'Content-Type', 
-    'Authorization', 
-    'X-Requested-With', 
-    'Accept', 
-    'Origin',
-    'Access-Control-Allow-Headers',
-    'Access-Control-Request-Method',
-    'Access-Control-Request-Headers'
-  ],
-  exposedHeaders: ['Content-Range', 'X-Content-Range'],
-  preflightContinue: false,
-  optionsSuccessStatus: 204
-};
-
-app.use(cors(corsOptions));
-
-// Handle preflight requests explicitly
-app.options('*', (req, res) => {
-  console.log('🔄 CORS Preflight Request:', req.method, req.originalUrl);
-  console.log('🌍 Origin:', req.headers['origin']);
-  console.log('🌍 Access-Control-Request-Method:', req.headers['access-control-request-method']);
-  console.log('🌍 Access-Control-Request-Headers:', req.headers['access-control-request-headers']);
-  
-  // Set CORS headers for preflight
-  res.header('Access-Control-Allow-Origin', req.headers['origin'] || '*');
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  res.header('Access-Control-Max-Age', '86400'); // 24 hours
-  res.status(204).end();
-});
-
 // Remove duplicate body parser
 app.use(express.json({ 
   limit: '10mb',
@@ -97,29 +38,8 @@ app.use(express.json({
   }
 })); 
 
-// Enhanced debug middleware with CORS headers
+// Enhanced debug middleware
 app.use((req, res, next) => {
-  // Add CORS headers to all responses
-  const origin = req.headers['origin'];
-  const allowedOrigins = [
-    'https://rec-website-gules.vercel.app',
-    'https://recplus.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001'
-  ];
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
   console.log(`\n🌐 ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
   console.log('📦 Request body:', JSON.stringify(req.body, null, 2));
   console.log('📋 Content-Type:', req.headers['content-type']);
@@ -219,54 +139,6 @@ app.get('/api/test', (req, res) => {
   });
 });
 
-// Add CORS test endpoint
-app.get('/api/cors-test', (req, res) => {
-  console.log('✅ CORS TEST: /api/cors-test endpoint hit');
-  console.log('🌍 Origin:', req.headers['origin']);
-  console.log('🌍 Referer:', req.headers['referer']);
-  
-  // Explicitly set CORS headers for this test endpoint
-  const origin = req.headers['origin'];
-  if (origin) {
-    const allowedOrigins = [
-      'https://rec-website-gules.vercel.app',
-      'https://recplus.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ];
-    
-    if (allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      // For development, allow all origins
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
-  res.json({ 
-    success: true, 
-    message: 'CORS test successful',
-    timestamp: new Date().toISOString(),
-    origin: req.headers['origin'],
-    referer: req.headers['referer'],
-    corsEnabled: true,
-    allowedOrigins: [
-      'https://rec-website-gules.vercel.app',
-      'https://recplus.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ]
-  });
-});
-
 // Add authentication test endpoint (no auth required)
 app.get('/api/auth-test', (req, res) => {
   console.log('✅ Auth Test endpoint hit');
@@ -285,39 +157,12 @@ app.get('/api/users/me-test', (req, res) => {
   console.log('🔑 Authorization header:', req.headers['authorization'] ? 'Present' : 'Missing');
   console.log('🌍 Origin:', req.headers['origin']);
   
-  // Set CORS headers explicitly for this test
-  const origin = req.headers['origin'];
-  const allowedOrigins = [
-    'https://rec-website-gules.vercel.app',
-    'https://recplus.vercel.app',
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'http://127.0.0.1:3000',
-    'http://127.0.0.1:3001'
-  ];
-  
-  if (origin && allowedOrigins.includes(origin)) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
-  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
-  res.header('Access-Control-Allow-Credentials', 'true');
-  
   res.json({ 
     success: true, 
     message: 'Users/me test endpoint accessible',
     hasAuthHeader: !!req.headers['authorization'],
-    origin: origin,
-    timestamp: new Date().toISOString(),
-    corsHeaders: {
-      'Access-Control-Allow-Origin': origin && allowedOrigins.includes(origin) ? origin : '*',
-      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH',
-      'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers',
-      'Access-Control-Allow-Credentials': 'true'
-    }
+    origin: req.headers['origin'],
+    timestamp: new Date().toISOString()
   });
 });
 
@@ -335,7 +180,6 @@ app.use('/api/*', (req, res) => {
     message: `Route not found: ${req.method} ${req.originalUrl}`,
     availableRoutes: [
       'GET /api/test',
-      'GET /api/cors-test',
       'POST /api/candidates/register',
       'POST /api/companies/register',
       'POST /api/ai/generate-email',

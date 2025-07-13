@@ -612,7 +612,7 @@ newman run "RecruitmentPlus CRM API.postman_collection.json" -e "RecruitmentPlus
 1. **Server not running**: Ensure backend server is started on port 3000
 2. **Database empty**: Run `npm run seed` to populate test data
 3. **Environment variables**: Check that all variables are set correctly
-4. **CORS issues**: Verify CORS is enabled in your backend
+4. **CORS issues**: CORS has been removed from this backend
 5. **Authentication**: Ensure login test runs first to set auth token
 
 ### Debug Tips
