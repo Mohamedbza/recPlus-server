@@ -1,6 +1,7 @@
 require('dotenv').config({ path: __dirname + '/../.env' });
 const express = require('express');
 const mongoose = require('mongoose');
+const cors = require('cors');
 
 // Import routes
 const candidatesRouter = require('../routes/candidates');
@@ -21,6 +22,35 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// CORS configuration
+const corsOptions = {
+  origin: [
+    'https://rec-website-gules.vercel.app',
+    'https://recplus.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://localhost:4173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-Auth-Token',
+    'Cache-Control'
+  ],
+  exposedHeaders: ['Content-Range', 'X-Content-Range']
+};
+
+app.use(cors(corsOptions));
+
+// Handle preflight requests
+app.options('*', cors(corsOptions));
 
 // Remove duplicate body parser
 app.use(express.json({ 
@@ -47,6 +77,12 @@ app.use((req, res, next) => {
   console.log('🔑 Authorization:', req.headers['authorization'] ? 'Present' : 'Missing');
   console.log('🌍 Origin:', req.headers['origin']);
   console.log('🌍 Referer:', req.headers['referer']);
+  
+  // Add CORS headers for debugging
+  res.header('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
+  res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, Authorization, X-Auth-Token, Cache-Control');
   
   // Check if body is parsed correctly
   if (req.method !== 'GET' && req.headers['content-type']?.includes('application/json')) {
@@ -131,11 +167,35 @@ app.get('/debug/routes', (req, res) => {
 // Add a test route to verify server is responding
 app.get('/api/test', (req, res) => {
   console.log('✅ TEST: /api/test endpoint hit');
+  console.log('🌍 Origin:', req.headers['origin']);
   res.json({ 
     success: true, 
     message: 'Server is responding',
     timestamp: new Date().toISOString(),
-    url: req.originalUrl
+    url: req.originalUrl,
+    origin: req.headers['origin'],
+    corsEnabled: true
+  });
+});
+
+// Add CORS test endpoint
+app.get('/api/cors-test', (req, res) => {
+  console.log('✅ CORS TEST: /api/cors-test endpoint hit');
+  console.log('🌍 Origin:', req.headers['origin']);
+  console.log('🌍 Method:', req.method);
+  console.log('🌍 Headers:', req.headers);
+  
+  res.json({ 
+    success: true, 
+    message: 'CORS test endpoint',
+    timestamp: new Date().toISOString(),
+    origin: req.headers['origin'],
+    method: req.method,
+    corsHeaders: {
+      'Access-Control-Allow-Origin': req.headers.origin || '*',
+      'Access-Control-Allow-Credentials': 'true',
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS, PATCH'
+    }
   });
 });
 
@@ -191,8 +251,10 @@ app.use('/api/*', (req, res) => {
 
 app.listen(PORT, () => {
   console.log(`🚀 Server is running on port ${PORT}`);
+  console.log(`🌍 CORS enabled for origins: https://rec-website-gules.vercel.app, https://recplus.vercel.app, localhost:3000, localhost:3001, localhost:5173, localhost:4173`);
   console.log(`📊 Debug routes available at: http://localhost:${PORT}/debug/routes`);
   console.log(`🧪 Test endpoint available at: http://localhost:${PORT}/api/test`);
+  console.log(`🌍 CORS test endpoint available at: http://localhost:${PORT}/api/cors-test`);
   console.log(`📧 Email generation endpoint should be at: http://localhost:${PORT}/api/ai/generate-email`);
 });
 
