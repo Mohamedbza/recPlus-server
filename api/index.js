@@ -1,7 +1,7 @@
 require('dotenv').config({ path: __dirname + '/../.env' });
 const express = require('express');
 const mongoose = require('mongoose');
-const bodyParser = require('body-parser');
+
 const cors = require('cors');
 
 // Import routes
@@ -24,33 +24,10 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS configuration - Simplified and more permissive for development
+// CORS configuration - Allow all origins for development/testing
 const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    
-    const allowedOrigins = [
-      'https://rec-website-gules.vercel.app',
-      'https://recplus.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ];
-    
-    console.log('🌍 CORS Check - Origin:', origin);
-    console.log('🌍 CORS Check - Allowed Origins:', allowedOrigins);
-    
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      console.log('✅ CORS: Origin allowed');
-      callback(null, true);
-    } else {
-      console.log('❌ CORS: Origin not allowed:', origin);
-      // For development, allow all origins temporarily
-      console.log('⚠️  Allowing origin for development');
-      callback(null, true);
-    }
+    callback(null, true); // Allow all origins
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
@@ -79,13 +56,7 @@ app.options('*', (req, res) => {
   console.log('🌍 Access-Control-Request-Headers:', req.headers['access-control-request-headers']);
   
   // Set CORS headers for preflight
-  const origin = req.headers['origin'];
-  if (origin) {
-    res.header('Access-Control-Allow-Origin', origin);
-  } else {
-    res.header('Access-Control-Allow-Origin', '*');
-  }
-  
+  res.header('Access-Control-Allow-Origin', req.headers['origin'] || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
   res.header('Access-Control-Allow-Credentials', 'true');
@@ -112,25 +83,7 @@ app.use(express.json({
 // Enhanced debug middleware with CORS headers
 app.use((req, res, next) => {
   // Add CORS headers to all responses
-  const origin = req.headers['origin'];
-  if (origin) {
-    const allowedOrigins = [
-      'https://rec-website-gules.vercel.app',
-      'https://recplus.vercel.app',
-      'http://localhost:3000',
-      'http://localhost:3001',
-      'http://127.0.0.1:3000',
-      'http://127.0.0.1:3001'
-    ];
-    
-    if (allowedOrigins.includes(origin)) {
-      res.header('Access-Control-Allow-Origin', origin);
-    } else {
-      // For development, allow all origins
-      res.header('Access-Control-Allow-Origin', origin);
-    }
-  }
-  
+  res.header('Access-Control-Allow-Origin', req.headers['origin'] || '*');
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
   res.header('Access-Control-Allow-Credentials', 'true');
