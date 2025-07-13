@@ -145,7 +145,7 @@ app.use('/api/projects', verifyToken, regionAccessMiddleware, projectsRouter);
 // Routes without region access middleware
 app.use('/api/skills', verifyToken, skillsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/ai', verifyToken, aiRouter);
+app.use('/api/ai', aiRouter);
 console.log('✅ All routes mounted successfully');
 
 // Add authentication debug route
