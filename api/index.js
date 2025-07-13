@@ -209,6 +209,13 @@ const extractTextFromFile = async (file) => {
 };
 
 // Direct CV Analysis Route
+app.options('/api/ai/analyze-cv-direct', (req, res) => {
+  res.setHeader('Access-Control-Allow-Origin', req.headers.origin || '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+  res.setHeader('Access-Control-Allow-Credentials', 'true');
+  return res.status(200).end();
+});
 app.post('/api/ai/analyze-cv-direct', upload.single('file'), async (req, res) => {
   try {
     let cvText = req.body.cvText;
