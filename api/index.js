@@ -24,7 +24,7 @@ const { Candidate, Company, Job, Skill, User, JobApplication , Project } = requi
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// CORS configuration
+// CORS configuration - Simplified and more permissive for development
 const corsOptions = {
   origin: function (origin, callback) {
     // Allow requests with no origin (like mobile apps or curl requests)
@@ -47,7 +47,9 @@ const corsOptions = {
       callback(null, true);
     } else {
       console.log('❌ CORS: Origin not allowed:', origin);
-      callback(new Error('Not allowed by CORS'));
+      // For development, allow all origins temporarily
+      console.log('⚠️  Allowing origin for development');
+      callback(null, true);
     }
   },
   credentials: true,
@@ -76,10 +78,18 @@ app.options('*', (req, res) => {
   console.log('🌍 Access-Control-Request-Method:', req.headers['access-control-request-method']);
   console.log('🌍 Access-Control-Request-Headers:', req.headers['access-control-request-headers']);
   
-  res.header('Access-Control-Allow-Origin', req.headers['origin'] || '*');
+  // Set CORS headers for preflight
+  const origin = req.headers['origin'];
+  if (origin) {
+    res.header('Access-Control-Allow-Origin', origin);
+  } else {
+    res.header('Access-Control-Allow-Origin', '*');
+  }
+  
   res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS, PATCH');
   res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Allow-Headers, Access-Control-Request-Method, Access-Control-Request-Headers');
   res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Max-Age', '86400'); // 24 hours
   res.status(204).end();
 });
 
@@ -114,6 +124,9 @@ app.use((req, res, next) => {
     ];
     
     if (allowedOrigins.includes(origin)) {
+      res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      // For development, allow all origins
       res.header('Access-Control-Allow-Origin', origin);
     }
   }
@@ -241,6 +254,9 @@ app.get('/api/cors-test', (req, res) => {
     
     if (allowedOrigins.includes(origin)) {
       res.header('Access-Control-Allow-Origin', origin);
+    } else {
+      // For development, allow all origins
+      res.header('Access-Control-Allow-Origin', origin);
     }
   }
   
@@ -263,6 +279,18 @@ app.get('/api/cors-test', (req, res) => {
       'http://127.0.0.1:3000',
       'http://127.0.0.1:3001'
     ]
+  });
+});
+
+// Add authentication test endpoint (no auth required)
+app.get('/api/auth-test', (req, res) => {
+  console.log('✅ Auth Test endpoint hit');
+  console.log('🔑 Authorization header:', req.headers['authorization'] ? 'Present' : 'Missing');
+  res.json({ 
+    success: true, 
+    message: 'Auth test endpoint accessible',
+    hasAuthHeader: !!req.headers['authorization'],
+    timestamp: new Date().toISOString()
   });
 });
 
