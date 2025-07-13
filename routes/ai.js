@@ -3,7 +3,40 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const cors = require('cors');
 const { generateEmail, analyzeCv, generateJobDescription } = require('../controllers/aiController');
+
+// CORS configuration for AI routes
+const corsOptions = {
+  origin: [
+    'https://rec-website-gules.vercel.app',
+    'https://recplus.vercel.app',
+    'https://rec-plus-server.vercel.app',
+    'http://localhost:3000',
+    'http://localhost:3001',
+    'http://localhost:5173',
+    'http://localhost:4173'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS', 'PATCH'],
+  allowedHeaders: [
+    'Origin',
+    'X-Requested-With',
+    'Content-Type',
+    'Accept',
+    'Authorization',
+    'X-Auth-Token',
+    'Cache-Control',
+    'Content-Length',
+    'Content-Disposition'
+  ]
+};
+
+// Apply CORS to all AI routes
+router.use(cors(corsOptions));
+
+// Handle preflight requests for file uploads
+router.options('*', cors(corsOptions));
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
@@ -77,7 +110,7 @@ router.post('/generate-email', generateEmail);
 // @route   POST /api/ai/analyze-cv
 // @desc    Analyze CV using AI (supports both text and file uploads)
 // @access  Private
-router.post('/analyze-cv', upload.single('file'), analyzeCv);
+router.post('/analyze-cv', cors(corsOptions), upload.single('file'), analyzeCv);
 router.post('/generate-job-description', generateJobDescription);
 
 module.exports = router;
