@@ -563,16 +563,7 @@ app.use('/api/*', (req, res) => {
     ]
   });
 });
-
-app.listen(PORT, () => {
-  console.log(`🚀 Server is running on port ${PORT}`);
-  console.log(`🌍 CORS enabled for origins: https://rec-website-gules.vercel.app, https://recplus.vercel.app, localhost:3000, localhost:3001, localhost:5173, localhost:4173`);
-  console.log(`📊 Debug routes available at: http://localhost:${PORT}/debug/routes`);
-  console.log(`🧪 Test endpoint available at: http://localhost:${PORT}/api/test`);
-  console.log(`🌍 CORS test endpoint available at: http://localhost:${PORT}/api/cors-test`);
-  console.log(`📧 Email generation endpoint should be at: http://localhost:${PORT}/api/ai/generate-email`);
-});
-
+ 
 // Export models
 module.exports = app;
 module.exports.Candidate = Candidate;
