@@ -28,6 +28,7 @@ const corsOptions = {
   origin: [
     'https://rec-website-gules.vercel.app',
     'https://recplus.vercel.app',
+    'https://rec-plus-server.vercel.app',
     'http://localhost:3000',
     'http://localhost:3001',
     'http://localhost:5173',
@@ -124,9 +125,9 @@ app.use('/api/job-applications', verifyToken, regionAccessMiddleware, jobApplica
 app.use('/api/projects', verifyToken, regionAccessMiddleware, projectsRouter);
 
 // Routes without region access middleware
-app.use('/api/skills', skillsRouter);
+app.use('/api/skills', verifyToken, skillsRouter);
 app.use('/api/users', usersRouter);
-app.use('/api/ai', aiRouter);
+app.use('/api/ai', verifyToken, aiRouter);
 console.log('✅ All routes mounted successfully');
 
 // Add authentication debug route
