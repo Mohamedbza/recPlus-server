@@ -6,8 +6,12 @@ const {
   createCompany,
   registerCompany,
   updateCompany,
-  deleteCompany
+  deleteCompany,
+  loginCompany
 } = require('../controllers/companyController');
+
+// POST company/employer login
+router.post('/login', loginCompany);
 
 // GET all companies
 router.get('/', getAllCompanies);

@@ -17,13 +17,14 @@ const usersRouter = require('../routes/users');
 const jobApplicationsRouter = require('../routes/jobApplications');
 const aiRouter = require('../routes/ai');
 const projectsRouter = require('../routes/projects');
+const calendarTasksRouter = require('../routes/calendarTasks');
 
 // Import middleware
 const regionAccessMiddleware = require('../middleware/regionAccess');
 const { verifyToken } = require('../controllers/userController');
 
 // Import models
-const { Candidate, Company, Job, Skill, User, JobApplication , Project } = require('../models');
+const { Candidate, Company, Job, Skill, User, JobApplication , Project, CalendarTask } = require('../models');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -143,6 +144,7 @@ app.use('/api/companies', verifyToken, regionAccessMiddleware, companiesRouter);
 app.use('/api/jobs', verifyToken, regionAccessMiddleware, jobsRouter);
 app.use('/api/job-applications', verifyToken, regionAccessMiddleware, jobApplicationsRouter);
 app.use('/api/projects', verifyToken, regionAccessMiddleware, projectsRouter);
+app.use('/api/calendar-tasks', verifyToken, regionAccessMiddleware, calendarTasksRouter);
 
 // Routes without region access middleware
 app.use('/api/skills', verifyToken, skillsRouter);

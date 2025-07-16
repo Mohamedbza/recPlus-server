@@ -7,8 +7,12 @@ const {
   registerCandidate,
   updateCandidate,
   deleteCandidate,
-  getCandidatesBySkill
+  getCandidatesBySkill,
+  loginCandidate
 } = require('../controllers/candidateController');
+
+// POST candidate login
+router.post('/login', loginCandidate);
 
 // GET all candidates
 router.get('/', getAllCandidates);

@@ -5,6 +5,7 @@ const Skill = require('./skill');
 const User = require('./user');
 const JobApplication = require('./jobApplication');
 const Project = require('./project');
+const CalendarTask = require('./calendarTask');
 
 module.exports = {
   Candidate,
@@ -13,5 +14,6 @@ module.exports = {
   Skill,
   User,
   JobApplication,
-  Project
+  Project,
+  CalendarTask
 }; 

@@ -1,5 +1,54 @@
 const Candidate = require('../models/candidate');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
+
+// Login candidate
+const loginCandidate = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if candidate exists
+    const candidate = await Candidate.findOne({ email });
+    if (!candidate) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, candidate.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if candidate is active
+    if (candidate.status !== 'active') {
+      return res.status(401).json({ message: 'Account is deactivated. Please contact support.' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: candidate._id, 
+        email: candidate.email, 
+        role: 'candidate',
+        location: candidate.location 
+      },
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: '24h' }
+    );
+
+    // Remove password from response
+    const candidateResponse = candidate.toObject();
+    delete candidateResponse.password;
+
+    res.json({
+      message: 'Login successful',
+      token,
+      candidate: candidateResponse
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
 
 // Get all candidates
 const getAllCandidates = async (req, res) => {
@@ -226,5 +275,6 @@ module.exports = {
   registerCandidate,
   updateCandidate,
   deleteCandidate,
-  getCandidatesBySkill
+  getCandidatesBySkill,
+  loginCandidate
 }; 

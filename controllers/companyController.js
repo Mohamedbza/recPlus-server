@@ -1,5 +1,6 @@
 const Company = require('../models/company');
 const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 
 // Get all companies
 const getAllCompanies = async (req, res) => {
@@ -203,11 +204,60 @@ const registerCompany = async (req, res) => {
   }
 };
 
+// Login company/employer
+const loginCompany = async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if company exists
+    const company = await Company.findOne({ email });
+    if (!company) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, company.password);
+    if (!isPasswordValid) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if company is active
+    if (company.status !== 'active') {
+      return res.status(401).json({ message: 'Account is deactivated. Please contact support.' });
+    }
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { 
+        id: company._id, 
+        email: company.email, 
+        role: 'employer',
+        location: company.location 
+      },
+      process.env.JWT_SECRET || 'fallback_secret',
+      { expiresIn: '24h' }
+    );
+
+    // Remove password from response
+    const companyResponse = company.toObject();
+    delete companyResponse.password;
+
+    res.json({
+      message: 'Login successful',
+      token,
+      company: companyResponse
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
 module.exports = {
   getAllCompanies,
   getCompanyById,
   createCompany,
   registerCompany,
   updateCompany,
-  deleteCompany
+  deleteCompany,
+  loginCompany
 }; 
