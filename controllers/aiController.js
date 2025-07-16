@@ -762,9 +762,92 @@ Please submit your application through our careers portal.`;
   });
 });
 
+// @desc    Match candidates to a specific job based on skills
+// @route   GET /api/ai/match-candidates/:jobId
+// @access  Private
+const matchCandidatesToJob = asyncHandler(async (req, res) => {
+  try {
+    const { jobId } = req.params;
+    const { limit = 10 } = req.query;
+
+    // Import models
+    const Job = require('../models/job');
+    const Candidate = require('../models/candidate');
+
+    // Get the job with its skill requirements
+    const job = await Job.findById(jobId).populate('skills');
+    if (!job) {
+      return res.status(404).json({
+        success: false,
+        message: 'Job not found'
+      });
+    }
+
+    // Get all active candidates
+    const candidates = await Candidate.find({ isActive: true });
+
+    // Calculate match scores for each candidate
+    const candidatesWithScores = candidates.map(candidate => {
+      let matchScore = 0;
+      let matchingSkills = [];
+
+      if (job.skills && job.skills.length > 0 && candidate.skills && candidate.skills.length > 0) {
+        const jobSkillNames = job.skills.map(skill => 
+          skill.skill_name ? skill.skill_name.toLowerCase() : skill.skill_id.toLowerCase()
+        );
+        
+        const candidateSkillNames = candidate.skills.map(skill => skill.toLowerCase());
+        
+        matchingSkills = jobSkillNames.filter(jobSkill => 
+          candidateSkillNames.some(candidateSkill => 
+            candidateSkill.includes(jobSkill) || jobSkill.includes(candidateSkill)
+          )
+        );
+        
+        matchScore = Math.round((matchingSkills.length / jobSkillNames.length) * 100);
+      }
+
+      return {
+        ...candidate.toObject(),
+        matchScore,
+        matchingSkills
+      };
+    });
+
+    // Sort by match score (highest first) and limit results
+    const sortedCandidates = candidatesWithScores
+      .filter(candidate => candidate.matchScore > 0) // Only include candidates with some match
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        job: {
+          id: job._id,
+          title: job.title,
+          company_name: job.company_name,
+          skills: job.skills
+        },
+        candidates: sortedCandidates,
+        total: sortedCandidates.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error matching candidates to job:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to match candidates to job',
+      error: error.message
+    });
+  }
+});
+
 
 module.exports = {
   generateEmail,
   analyzeCv,
-  generateJobDescription
+  generateJobDescription,
+  matchCandidatesToJob
 };

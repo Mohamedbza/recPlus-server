@@ -50,6 +50,8 @@ const corsOptions = {
     'Authorization',
     'X-Auth-Token',
     'Cache-Control',
+    'Pragma',
+    'Expires',
     'Content-Length',
     'Content-Disposition'
   ],

@@ -4,7 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const cors = require('cors');
-const { generateEmail, analyzeCv, generateJobDescription } = require('../controllers/aiController');
+const { generateEmail, analyzeCv, generateJobDescription, matchCandidatesToJob } = require('../controllers/aiController');
 
 // CORS configuration for AI routes
 const corsOptions = {
@@ -111,6 +111,15 @@ router.post('/generate-email', generateEmail);
 // @desc    Analyze CV using AI (supports both text and file uploads)
 // @access  Private
 router.post('/analyze-cv', cors(corsOptions), upload.single('file'), analyzeCv);
+
+// @route   POST /api/ai/generate-job-description
+// @desc    Generate job description using AI
+// @access  Private
 router.post('/generate-job-description', generateJobDescription);
+
+// @route   GET /api/ai/match-candidates/:jobId
+// @desc    Match candidates to a specific job based on skills
+// @access  Private
+router.get('/match-candidates/:jobId', matchCandidatesToJob);
 
 module.exports = router;
