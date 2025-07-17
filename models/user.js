@@ -101,6 +101,16 @@ const userSchema = new mongoose.Schema({
     type: String
   },
   
+  // Connection Status
+  isOnline: {
+    type: Boolean,
+    default: false
+  },
+  lastSeen: {
+    type: Date,
+    default: Date.now
+  },
+  
   // Preferences
   preferences: {
     theme: {

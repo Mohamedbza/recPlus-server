@@ -21,7 +21,7 @@ const calendarTasksRouter = require('../routes/calendarTasks');
 
 // Import middleware
 const regionAccessMiddleware = require('../middleware/regionAccess');
-const { verifyToken } = require('../controllers/userController');
+const { verifyToken, cleanupOfflineUsers } = require('../controllers/userController');
 
 // Import models
 const { Candidate, Company, Job, Skill, User, JobApplication , Project, CalendarTask } = require('../models');
@@ -121,7 +121,15 @@ const DB = process.env.MONGODB_URI;
 
 // Connect to MongoDB
 mongoose.connect(DB)
-  .then(() => console.log('MongoDB connection successful'))
+  .then(() => {
+    console.log('MongoDB connection successful');
+    
+    // Start periodic cleanup for offline users (every 2 minutes)
+    console.log('🧹 Starting periodic cleanup for offline users...');
+    setInterval(() => {
+      cleanupOfflineUsers();
+    }, 2 * 60 * 1000); // 2 minutes
+  })
   .catch((e) => console.error('MongoDB connection error:', e));
 
 // Routes with region access middleware

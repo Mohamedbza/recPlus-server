@@ -12,7 +12,9 @@ const {
   getUsersByRole,
   getUsersByRegion,
   getActiveUsers,
-  updateUserStatus
+  updateUserStatus,
+  updateConnectionStatus,
+  getOnlineUsers
 } = require('../controllers/userController');
 
 // Public routes
@@ -49,5 +51,11 @@ router.get('/active/all', verifyToken, getActiveUsers);
 
 // PATCH update user status
 router.patch('/:id/status', verifyToken, updateUserStatus);
+
+// PATCH update connection status
+router.patch('/:id/connection', verifyToken, updateConnectionStatus);
+
+// GET online users
+router.get('/online/all', verifyToken, getOnlineUsers);
 
 module.exports = router; 

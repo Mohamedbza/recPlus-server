@@ -35,8 +35,10 @@ const loginUser = async (req, res) => {
       });
     }
 
-    // Update last login
+    // Update last login and set online status
     user.lastLogin = new Date();
+    user.isOnline = true;
+    user.lastSeen = new Date();
     await user.save();
 
     // Generate JWT token with region
@@ -277,7 +279,89 @@ const getActiveUsers = async (req, res) => {
   }
 };
 
-// Update user status
+// Update user connection status
+const updateConnectionStatus = async (req, res) => {
+  try {
+    const { isOnline } = req.body;
+    const userId = req.params.id;
+    
+    const updateData = {
+      isOnline,
+      lastSeen: new Date()
+    };
+    
+    const user = await User.findByIdAndUpdate(
+      userId,
+      updateData,
+      { new: true }
+    ).select('-password');
+    
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    
+    res.json(user);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Set user online (called on login/connection)
+const setUserOnline = async (userId) => {
+  try {
+    await User.findByIdAndUpdate(userId, {
+      isOnline: true,
+      lastSeen: new Date()
+    });
+  } catch (error) {
+    console.error('Error setting user online:', error);
+  }
+};
+
+// Set user offline (called on logout/disconnection)
+const setUserOffline = async (userId) => {
+  try {
+    await User.findByIdAndUpdate(userId, {
+      isOnline: false,
+      lastSeen: new Date()
+    });
+  } catch (error) {
+    console.error('Error setting user offline:', error);
+  }
+};
+
+// Get online users
+const getOnlineUsers = async (req, res) => {
+  try {
+    const users = await User.find({ 
+      isOnline: true, 
+      isActive: true 
+    }).select('-password');
+    res.json(users);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+// Auto-cleanup offline users (users inactive for more than 5 minutes)
+const cleanupOfflineUsers = async () => {
+  try {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    await User.updateMany(
+      {
+        isOnline: true,
+        lastSeen: { $lt: fiveMinutesAgo }
+      },
+      {
+        isOnline: false
+      }
+    );
+  } catch (error) {
+    console.error('Error cleaning up offline users:', error);
+  }
+};
+
+// Update user status (for isActive field)
 const updateUserStatus = async (req, res) => {
   try {
     const { isActive } = req.body;
@@ -308,5 +392,10 @@ module.exports = {
   getUsersByRole,
   getUsersByRegion,
   getActiveUsers,
-  updateUserStatus
+  updateUserStatus,
+  updateConnectionStatus,
+  setUserOnline,
+  setUserOffline,
+  getOnlineUsers,
+  cleanupOfflineUsers
 }; 
