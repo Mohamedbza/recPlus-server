@@ -135,20 +135,24 @@ mongoose.connect(DB)
 // Routes with region access middleware
 console.log('🔗 Mounting routes...');
 
-// Public registration routes (no authentication required)
-app.post('/api/candidates/register', (req, res, next) => {
-  // Import the registerCandidate function directly
-  const { registerCandidate } = require('../controllers/candidateController');
-  registerCandidate(req, res, next);
-});
+// Import controllers for auth routes
+const { registerCandidate, loginCandidate } = require('../controllers/candidateController');
+const { registerCompany, loginCompany } = require('../controllers/companyController');
 
-app.post('/api/companies/register', (req, res, next) => {
-  // Import the registerCompany function directly
-  const { registerCompany } = require('../controllers/companyController');
-  registerCompany(req, res, next);
-});
+// Public auth routes (no authentication required)
+const authRouter = express.Router();
+// Candidate auth routes
+authRouter.post('/candidates/register/public', registerCandidate);
+authRouter.post('/candidates/login/public', loginCandidate);
+// Company auth routes
+authRouter.post('/companies/register/public', registerCompany);
+authRouter.post('/companies/login/public', loginCompany);
+app.use('/api/auth', authRouter);
 
-// Protected routes with authentication and region access
+// Public job routes
+app.use('/api/jobs/public', jobsRouter);
+
+// Protected CRM routes with authentication and region access
 app.use('/api/candidates', verifyToken, regionAccessMiddleware, candidatesRouter);
 app.use('/api/companies', verifyToken, regionAccessMiddleware, companiesRouter);
 app.use('/api/jobs', verifyToken, regionAccessMiddleware, jobsRouter);

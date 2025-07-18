@@ -4,7 +4,7 @@ const Company = require('../models/company');
 // Get all jobs
 const getAllJobs = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, status, jobType, experienceLevel } = req.query;
+    const { page = 1, limit = 10, search, status, jobType, experienceLevel, skills } = req.query;
     
     let query = {};
     
@@ -28,6 +28,31 @@ const getAllJobs = async (req, res) => {
           { $or: query.$or }
         ];
         delete query.$or;
+      }
+    }
+    
+    // Skills filter
+    if (skills) {
+      const skillsArray = Array.isArray(skills) ? skills : skills.split(',').map(s => s.trim());
+      if (skillsArray.length > 0) {
+        const skillsQuery = { skills: { $in: skillsArray.map(skill => new RegExp(skill, 'i')) } };
+        
+        // Combine with existing query
+        if (query.$and) {
+          query.$and.push(skillsQuery);
+        } else if (query.$or) {
+          query = {
+            $and: [
+              { $or: query.$or },
+              skillsQuery
+            ]
+          };
+        } else {
+          query = {
+            ...query,
+            ...skillsQuery
+          };
+        }
       }
     }
     

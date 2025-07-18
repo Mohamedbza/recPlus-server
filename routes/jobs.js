@@ -8,19 +8,15 @@ const {
   deleteJob
 } = require('../controllers/jobController');
 
-// GET all jobs
+// Public routes
+router.get('/public', getAllJobs); // Public endpoint for job search
+router.get('/public/:id', getJobById); // Public endpoint for single job
+
+// Protected routes
 router.get('/', getAllJobs);
-
-// GET job by ID
 router.get('/:id', getJobById);
-
-// POST create new job
 router.post('/', createJob);
-
-// PUT update job
 router.put('/:id', updateJob);
-
-// DELETE job
 router.delete('/:id', deleteJob);
 
 module.exports = router; 

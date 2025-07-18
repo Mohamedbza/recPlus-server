@@ -20,7 +20,7 @@ const loginCandidate = async (req, res) => {
     }
 
     // Check if candidate is active
-    if (candidate.status !== 'active') {
+    if (!candidate.isActive) {
       return res.status(401).json({ message: 'Account is deactivated. Please contact support.' });
     }
 
@@ -83,7 +83,7 @@ const getAllCandidates = async (req, res) => {
     
     // Status filter
     if (status) {
-      query.status = status;
+      query.isActive = status === 'active' ? true : status === 'inactive';
     }
     
     const candidates = await Candidate.find(query)
