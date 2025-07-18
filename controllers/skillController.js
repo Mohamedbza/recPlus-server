@@ -3,7 +3,7 @@ const Skill = require('../models/skill');
 // Get all skills
 const getAllSkills = async (req, res) => {
   try {
-    const { page = 1, limit = 10, search, category, isActive } = req.query;
+    const { page = 1, limit = 10, search, category } = req.query;
     
     let query = {};
     
@@ -11,8 +11,7 @@ const getAllSkills = async (req, res) => {
     if (search) {
       query.$or = [
         { name: { $regex: search, $options: 'i' } },
-        { category: { $regex: search, $options: 'i' } },
-        { description: { $regex: search, $options: 'i' } }
+        { category: { $regex: search, $options: 'i' } }
       ];
     }
     
@@ -21,15 +20,10 @@ const getAllSkills = async (req, res) => {
       query.category = category;
     }
     
-    // Active filter
-    if (isActive !== undefined) {
-      query.isActive = isActive === 'true';
-    }
-    
     const skills = await Skill.find(query)
       .limit(limit * 1)
       .skip((page - 1) * limit)
-      .sort({ usageCount: -1 });
+      .sort({ name: 1 }); // Sort by name alphabetically
     
     const total = await Skill.countDocuments(query);
     
