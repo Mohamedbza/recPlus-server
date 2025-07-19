@@ -15,13 +15,15 @@ const jobsRouter = require('../routes/jobs');
 const skillsRouter = require('../routes/skills');
 const usersRouter = require('../routes/users');
 const jobApplicationsRouter = require('../routes/jobApplications');
+const jobApplicationsPublicRouter = require('../routes/jobApplicationsPublic');
 const aiRouter = require('../routes/ai');
 const projectsRouter = require('../routes/projects');
 const calendarTasksRouter = require('../routes/calendarTasks');
 
 // Import middleware
 const regionAccessMiddleware = require('../middleware/regionAccess');
-const { verifyToken, cleanupOfflineUsers } = require('../controllers/userController');
+const { verifyToken } = require('../middleware/auth');
+const { cleanupOfflineUsers } = require('../controllers/userController');
 
 // Import models
 const { Candidate, Company, Job, Skill, User, JobApplication , Project, CalendarTask } = require('../models');
@@ -152,6 +154,9 @@ app.use('/api/auth', authRouter);
 
 // Public job routes
 app.use('/api/jobs/public', jobsRouter);
+
+// Public job applications routes (for candidates)
+app.use('/api/job-applications/public', jobApplicationsPublicRouter);
 
 // Protected CRM routes with authentication and region access
 app.use('/api/candidates', verifyToken, regionAccessMiddleware, candidatesRouter);

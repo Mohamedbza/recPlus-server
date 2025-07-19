@@ -4,7 +4,7 @@ const router = express.Router();
 const multer = require('multer');
 const path = require('path');
 const cors = require('cors');
-const { generateEmail, analyzeCv, generateJobDescription, matchCandidatesToJob } = require('../controllers/aiController');
+const { generateEmail, analyzeCv, generateJobDescription, matchCandidatesToJob, matchJobsToCandidate } = require('../controllers/aiController');
 
 // CORS configuration for AI routes
 const corsOptions = {
@@ -121,5 +121,10 @@ router.post('/generate-job-description', generateJobDescription);
 // @desc    Match candidates to a specific job based on skills
 // @access  Private
 router.get('/match-candidates/:jobId', matchCandidatesToJob);
+
+// @route   GET /api/ai/match-jobs/:candidateId
+// @desc    Match jobs to a specific candidate based on skills
+// @access  Private
+router.get('/match-jobs/:candidateId', matchJobsToCandidate);
 
 module.exports = router;

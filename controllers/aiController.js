@@ -844,10 +844,92 @@ const matchCandidatesToJob = asyncHandler(async (req, res) => {
   }
 });
 
+// @desc    Match jobs to a specific candidate based on skills
+// @route   GET /api/ai/match-jobs/:candidateId
+// @access  Private
+const matchJobsToCandidate = asyncHandler(async (req, res) => {
+  try {
+    const { candidateId } = req.params;
+    const { limit = 10 } = req.query;
+
+    // Import models
+    const Job = require('../models/job');
+    const Candidate = require('../models/candidate');
+
+    // Get the candidate with their skills
+    const candidate = await Candidate.findById(candidateId);
+    if (!candidate) {
+      return res.status(404).json({
+        success: false,
+        message: 'Candidate not found'
+      });
+    }
+
+    // Get all active jobs
+    const jobs = await Job.find({ isActive: true }).populate('companyId', 'name logo location');
+
+    // Calculate match scores for each job
+    const jobsWithScores = jobs.map(job => {
+      let matchScore = 0;
+      let matchingSkills = [];
+
+      if (job.skills && job.skills.length > 0 && candidate.skills && candidate.skills.length > 0) {
+        const jobSkillNames = job.skills.map(skill => 
+          skill.skill_name ? skill.skill_name.toLowerCase() : skill.skill_id.toLowerCase()
+        );
+        
+        const candidateSkillNames = candidate.skills.map(skill => skill.toLowerCase());
+        
+        matchingSkills = jobSkillNames.filter(jobSkill => 
+          candidateSkillNames.some(candidateSkill => 
+            candidateSkill.includes(jobSkill) || jobSkill.includes(candidateSkill)
+          )
+        );
+        
+        matchScore = Math.round((matchingSkills.length / jobSkillNames.length) * 100);
+      }
+
+      return {
+        ...job.toObject(),
+        matchScore,
+        matchingSkills
+      };
+    });
+
+    // Sort by match score (highest first) and limit results
+    const sortedJobs = jobsWithScores
+      .filter(job => job.matchScore > 0) // Only include jobs with some match
+      .sort((a, b) => b.matchScore - a.matchScore)
+      .slice(0, parseInt(limit));
+
+    res.json({
+      success: true,
+      data: {
+        candidate: {
+          id: candidate._id,
+          firstName: candidate.firstName,
+          lastName: candidate.lastName,
+          skills: candidate.skills
+        },
+        jobs: sortedJobs,
+        total: sortedJobs.length
+      }
+    });
+
+  } catch (error) {
+    console.error('Error matching jobs to candidate:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to match jobs to candidate',
+      error: error.message
+    });
+  }
+});
 
 module.exports = {
   generateEmail,
   analyzeCv,
   generateJobDescription,
-  matchCandidatesToJob
+  matchCandidatesToJob,
+  matchJobsToCandidate
 };
